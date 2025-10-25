@@ -29,7 +29,7 @@
 
       <div class="mb-3">
         <label for="usernameInput" class="form-label">Utilizador</label>
-        <input type="text" name="username" id="usernameInput" class="form-control" placeholder="O teu utilizador" required>
+        <input type="text" name="username" id="usernameInput" class="form-control" placeholder="O seu utilizador" required>
       </div>
 
       <div class="mb-3">
