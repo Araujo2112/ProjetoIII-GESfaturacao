@@ -1,0 +1,129 @@
+/* ===== GesFaturação – Login styles =====
+   Scope: login / auth pages
+   Works on top of Bootstrap 5
+-------------------------------------------------- */
+
+:root{
+  --gf-bg: radial-gradient(1200px 800px at 10% -10%, rgba(87,110,255,.25), transparent 60%),
+           radial-gradient(1000px 700px at 110% 10%, rgba(54,201,221,.25), transparent 60%),
+           linear-gradient(180deg, #0e1526 0%, #0b1220 100%);
+  --gf-card-bg: rgba(255,255,255,.06);
+  --gf-card-border: 1px solid rgba(255,255,255,.14);
+  --gf-text: #e8edf7;
+  --gf-muted: #b8c2d8;
+  --gf-primary: #4f8cff;
+  --gf-primary-600: #3d74e5;
+  --gf-shadow: 0 10px 30px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.05) inset;
+}
+
+/* Page background */
+body{
+  min-height: 100svh;
+  background: var(--gf-bg) fixed;
+  color: var(--gf-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Center container */
+.auth-wrap{
+  display: grid;
+  place-items: center;
+  min-height: calc(100svh - 40px);
+  padding: 24px;
+}
+
+/* Card */
+.auth-card{
+  width: 100%;
+  max-width: 440px;
+  background: var(--gf-card-bg);
+  border: var(--gf-card-border);
+  border-radius: 18px;
+  box-shadow: var(--gf-shadow);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 28px;
+}
+
+/* Header */
+.auth-header{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.auth-logo{
+  width: 36px; height: 36px; border-radius: 8px;
+  background: linear-gradient(135deg, #4f8cff 0%, #36c9dd 100%);
+  display: inline-grid; place-items: center; color: #0b1220; font-weight: 800;
+}
+.auth-title{ margin: 0; font-size: 1.25rem; letter-spacing:.2px; }
+
+/* Alerts */
+.alert{
+  border-radius: 12px;
+  padding: .85rem 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 6px 16px rgba(0,0,0,.25);
+}
+.alert-danger{ background: rgba(255, 77, 79, .15); border-color: rgba(255,77,79,.35); color: #ffd6db; }
+.alert-success{ background: rgba(82,196,26,.15); border-color: rgba(82,196,26,.35); color: #d9f7be; }
+
+/* Labels & inputs */
+.form-label{ color: var(--gf-muted); font-size: .92rem; margin-bottom: .35rem; }
+.form-control{
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.22);
+  color: var(--gf-text);
+  border-radius: 12px;
+  padding: .75rem .9rem;
+  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.form-control::placeholder{ color: #9fb0cf; opacity: .7; }
+.form-control:focus{
+  background: rgba(255,255,255,.12);
+  border-color: var(--gf-primary);
+  outline: 0;
+  box-shadow: 0 0 0 .2rem rgba(79,140,255,.2);
+}
+
+/* Checkbox */
+.form-check-input{
+  background-color: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.25);
+}
+.form-check-input:checked{
+  background-color: var(--gf-primary);
+  border-color: var(--gf-primary);
+}
+
+/* Button */
+.btn-primary{
+  --bs-btn-color: #0b1220;
+  --bs-btn-bg: var(--gf-primary);
+  --bs-btn-border-color: var(--gf-primary);
+  --bs-btn-hover-bg: var(--gf-primary-600);
+  --bs-btn-hover-border-color: var(--gf-primary-600);
+  --bs-btn-focus-shadow-rgb: 79,140,255;
+  border-radius: 12px;
+  font-weight: 600;
+  padding: .7rem 1rem;
+  width: 100%;
+}
+
+/* Helper text / links */
+.auth-meta{
+  margin-top: .75rem;
+  font-size: .92rem;
+  color: var(--gf-muted);
+}
+.auth-meta a{ color: var(--gf-text); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Small print */
+.small-muted{ color: var(--gf-muted); font-size: .8rem; }
+
+/* Make containers slimmer on very small screens */
+@media (max-width: 380px){
+  .auth-card{ padding: 20px; border-radius: 16px; }
+}
