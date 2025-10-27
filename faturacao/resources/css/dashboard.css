@@ -1,0 +1,6 @@
+.collapse.show, .collapse {
+  display: block !important;
+  visibility: visible !important;
+  color: #fff !important;
+  opacity: 1 !important;
+}

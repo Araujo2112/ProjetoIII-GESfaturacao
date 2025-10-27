@@ -5,13 +5,13 @@ use App\Http\Controllers\LoginController;
 
 
 Route::get('/', function () {
-    return view('welcome');
-});
-
-Route::get('/login', function () {
     return view('login');
 });
 
-Route::post('/login',
+Route::post('/',
  [LoginController::class, 'process'])->
  name('login.process');
+
+ Route::get('/dashboard', function () {
+    return view('dashboard');
+});
