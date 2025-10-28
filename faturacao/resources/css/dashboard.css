@@ -4,3 +4,47 @@
   color: #fff !important;
   opacity: 1 !important;
 }
+
+/* Estilo geral da área principal */
+.visao-global {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Estilo dos cartões KPI */
+.kpi-card {
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  background: linear-gradient(145deg, #ffffff, #f9fafb);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(0,0,0,0.08);
+}
+
+.kpi-icon {
+  font-size: 2rem;
+  color: #0d6efd;
+  opacity: 0.8;
+}
+
+.kpi-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #6c757d;
+}
+
+.kpi-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #212529;
+}
+
+/* Gradientes por tipo de métrica */
+.kpi-faturado { background: linear-gradient(135deg, #e9f2ff, #ffffff); }
+.kpi-iva       { background: linear-gradient(135deg, #fff5e9, #ffffff); }
+.kpi-contagem  { background: linear-gradient(135deg, #eefdf0, #ffffff); }
