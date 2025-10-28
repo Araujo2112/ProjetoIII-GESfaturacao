@@ -44,10 +44,6 @@
 
       <button type="submit" class="btn btn-primary">Entrar</button>
 
-      <p class="auth-meta">
-        Esqueceu-se da palavra-passe? <a href="#">Recuperar</a>
-      </p>
-
       <p class="small-muted mt-2">© {{ date('Y') }} GESFaturação</p>
     </form>
   </div>
