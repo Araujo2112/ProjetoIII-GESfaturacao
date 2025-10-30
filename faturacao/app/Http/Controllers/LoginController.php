@@ -13,7 +13,6 @@ class LoginController extends Controller
         $response = Http::asForm() 
             ->withHeaders([
                 'accept' => 'application/json',
-                'Authorization' => 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoiMiIsInVzZXJuYW1lIjoiZGVtbyIsImNyZWF0ZWQiOiIyMDI1LTEwLTIxIDE2OjU1OjU3In0.RilgfWzF6_GK6Ue2MOP18ieapaekkiGD6WVNuA3kLSE',
             ])
             ->post('https://api.gesfaturacao.pt/api/v1.0.4/login', [
                 'username' => $request->input('username'),
@@ -22,7 +21,14 @@ class LoginController extends Controller
 
         if ($response->successful()) {
 
-            session(['user' => $response->json()]);
+            $data = $response->json();
+
+            session([
+                'user.id' => $data['user']['id'],
+                'user.name' => $data['user']['name'],
+                'user.token' => $data['_token'],
+            ]);
+
             return redirect('/dashboard');
         } else {
 

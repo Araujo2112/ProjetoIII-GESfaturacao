@@ -43,7 +43,7 @@
                             <button type="button" class="btn btn-dark nav-link text-white w-100 dropdown-toggle d-flex justify-content-between align-items-center text-start" data-bs-toggle="dropdown" aria-expanded="false">Faturas</button>
                             <ul class="dropdown-menu">
                                 <li><a class="dropdown-item" href="#">Listagem</a></li>
-                                <li><a class="dropdown-item" href="#">A vencer(30 dias)</a></li>
+                                <li><a class="dropdown-item" href="#">A vencer (30 dias)</a></li>
                             </ul>
                         </div>
 
@@ -51,7 +51,7 @@
                             <button type="button" class="btn btn-dark nav-link text-white w-100 dropdown-toggle d-flex justify-content-between align-items-center text-start" data-bs-toggle="dropdown" aria-expanded="false">Compras</button>
                             <ul class="dropdown-menu">
                                 <li><a class="dropdown-item" href="#">Listagem</a></li>
-                                <li><a class="dropdown-item" href="#">A vencer(30 dias)</a></li>
+                                <li><a class="dropdown-item" href="#">A vencer (30 dias)</a></li>
                             </ul>
                         </div>
 
@@ -84,19 +84,95 @@
                         </ul>
                     </div>
                 </nav>
-                
-                <div class="d-flex justify-content-center align-items-center" style="height: calc(100vh - 60px);"> <!-- ajusta 60px conforme a altura da navbar -->
+
+                <div class="d-flex justify-content-center align-items-center" style="height: calc(100vh - 60px);">
                     <div class="bg-white rounded shadow p-4" style="width: 90%; height: 80%;">
-                        <!-- Aqui podes colocar os teus cards, tabelas etc -->
-                        <h5>Conteúdo principal</h5>
-                        <!-- Exemplo de card -->
-                        <div class="card mb-3">
-                            <div class="card-body">
-                                Isto é um card dentro do quadrado branco!
+                        <h1 class="text-dark text-center">Visão Geral</h1>
+                        
+                        <div class="container py-4">
+                            <div class="row d-flex align-items-stretch">
+
+                                <div class="col">
+                                    <div class="card h-100 bg-light p-2">
+                                        <div class="d-flex h-100 align-items-center">
+                                            <div class="d-flex flex-column justify-content-between flex-grow-1 h-100">
+                                                <div class="d-flex align-items-baseline justify-content-start mb-2">
+                                                    <span class="fw-bold fs-3 text-primary">...</span>
+                                                </div>
+                                                <div>
+                                                    <span class="text-secondary fs-5">Faturado Hoje</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col">
+                                    <div class="card h-100 bg-light p-2">
+                                        <div class="d-flex h-100 align-items-center">
+                                            <div class="d-flex flex-column justify-content-between flex-grow-1 h-100">
+                                                <div class="d-flex align-items-baseline justify-content-start mb-2">
+                                                    <span class="fw-bold fs-3 text-primary">...</span>
+                                                </div>
+                                                <div>
+                                                    <span class="text-secondary fs-5">Faturado Mês</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col">
+                                    <div class="card h-100 bg-light p-2">
+                                        <div class="d-flex h-100 align-items-center">
+                                            <div class="d-flex flex-column justify-content-between flex-grow-1 h-100">
+                                                <div class="d-flex align-items-baseline justify-content-start mb-2">
+                                                    <span class="fw-bold fs-3 text-primary">{{ $faturadoAno }}</span>
+                                                </div>
+                                                <div>
+                                                    <span class="text-secondary fs-5">Faturado Ano</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col">
+                                    <div class="card h-100 bg-light p-2">
+                                        <div class="d-flex h-100 align-items-center">
+                                            <div class="d-flex flex-column justify-content-between flex-grow-1 h-100">
+                                                <div class="d-flex align-items-baseline justify-content-start mb-2">
+                                                    <span class="fw-bold fs-3 text-primary">...</span>
+                                                </div>
+                                                <div>
+                                                    <span class="text-secondary fs-5">IVA Mês</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col">
+                                    <div class="card h-100 bg-light p-2">
+                                        <div class="d-flex h-100 align-items-center">
+                                            <div class="d-flex flex-column justify-content-between flex-grow-1 h-100">
+                                                <div class="d-flex align-items-baseline justify-content-start mb-2">
+                                                    <span class="fw-bold fs-3 text-primary">...</span>
+                                                </div>
+                                                <div>
+                                                    <span class="text-secondary fs-5">IVA Anual</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
                             </div>
                         </div>
                     </div>
                 </div>
+                
+
             </div>
 
         </div>
