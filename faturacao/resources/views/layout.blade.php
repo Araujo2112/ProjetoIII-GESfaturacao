@@ -10,8 +10,19 @@
     
     @vite(['resources/css/app.css', 'resources/js/app.js'])
   </head>
+
   <body>
-    @yield('content')
+    <div class="container-fluid">
+      <div class="row" style="height: 100vh;">
+        @if (!request()->is('/'))
+          @include('partials.sidemenu')
+        @endif
+
+        <div class="col-11 p-0 m-0" style="background: transparent;">
+          @yield('content')
+        </div>
+      </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
   </body>
