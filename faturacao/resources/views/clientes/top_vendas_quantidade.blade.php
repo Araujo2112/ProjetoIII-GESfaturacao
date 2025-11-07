@@ -1,11 +1,11 @@
 @extends('layout')
 
-@section('title', 'Top 5 Clientes — € Vendas')
+@section('title', 'Top 5 Clientes — Nº de Vendas')
 
 @section('content')
     <div style="margin-left:200px; margin-top:60px;">
         <div class="bg-white rounded shadow p-4">
-            <h1 class="text-dark text-center">Top 5 Clientes — € Vendas</h1>
+            <h1 class="text-dark text-center">Top 5 Clientes — Nº de Vendas</h1>
 
             <div class="container py-4">
                 <div class="row d-flex align-items-stretch">
@@ -20,7 +20,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse(collect($top5ClientesEuros ?? []) as $i => $c)
+                                @forelse(collect($top5ClientesQtd ?? []) as $i => $c)
                                     <tr>
                                         <td class="text-center">{{ $i + 1 }}</td>
                                         <td>{{ $c->cliente }}</td>
@@ -37,7 +37,7 @@
                     </div>
                 </div>
 
-                {{-- sem paginação (é top-5), tal como pedido --}}
+                {{-- sem paginação (é top-5) --}}
             </div>
         </div>
     </div>
