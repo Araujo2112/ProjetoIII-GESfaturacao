@@ -1,16 +1,13 @@
 <div class="col-1 bg-dark d-flex flex-column justify-content-between position-fixed" style="height: 100vh;">
     <div>
-        {{-- TOPO --}}
         <nav class="navbar bg-dark border-bottom border-white" data-bs-theme="dark">
             <div class="container-fluid">
                 <a class="navbar-brand text-white" href="{{ route('dashboard') }}">GESFaturação</a>
             </div>
         </nav>
 
-        {{-- MENU PRINCIPAL --}}
         <nav class="nav flex-column">
 
-            {{-- CLIENTES --}}
             <div class="btn-group dropend w-100 mb-2 mt-2">
                 <button type="button"
                         class="btn btn-dark nav-link text-white w-100 dropdown-toggle d-flex justify-content-between align-items-center text-start"
@@ -18,16 +15,12 @@
                     Clientes
                 </button>
                 <ul class="dropdown-menu">
-                    {{-- Lista principal de clientes --}}
                     <li><a class="dropdown-item" href="{{ route('clientes.lista', [], false) }}">Lista</a></li>
-
-                    {{-- Rankings --}}
                     <li><a class="dropdown-item" href="{{ route('clientes.top.euros') }}">Top € Vendas</a></li>
                     <li><a class="dropdown-item" href="{{ route('clientes.top.quantidade') }}">Top Nº Vendas</a></li>
                 </ul>
             </div>
 
-            {{-- FORNECEDORES --}}
             <div class="btn-group dropend w-100 mb-2">
                 <button type="button"
                         class="btn btn-dark nav-link text-white w-100 dropdown-toggle d-flex justify-content-between align-items-center text-start"
@@ -40,7 +33,6 @@
                 </ul>
             </div>
 
-            {{-- PRODUTOS --}}
             <div class="btn-group dropend w-100 mb-2">
                 <button type="button"
                         class="btn btn-dark nav-link text-white w-100 dropdown-toggle d-flex justify-content-between align-items-center text-start"
@@ -54,7 +46,6 @@
                 </ul>
             </div>
 
-            {{-- FATURAS --}}
             <div class="btn-group dropend w-100 mb-2">
                 <button type="button"
                         class="btn btn-dark nav-link text-white w-100 dropdown-toggle d-flex justify-content-between align-items-center text-start"
@@ -67,7 +58,6 @@
                 </ul>
             </div>
 
-            {{-- COMPRAS --}}
             <div class="btn-group dropend w-100 mb-2">
                 <button type="button"
                         class="btn btn-dark nav-link text-white w-100 dropdown-toggle d-flex justify-content-between align-items-center text-start"
@@ -80,7 +70,6 @@
                 </ul>
             </div>
 
-            {{-- ANÁLISE --}}
             <div class="btn-group dropend w-100 mb-2">
                 <button type="button"
                         class="btn btn-dark nav-link text-white w-100 dropdown-toggle d-flex justify-content-between align-items-center text-start"
@@ -96,7 +85,6 @@
         </nav>
     </div>
 
-    {{-- LOGOUT --}}
     <div class="border-top border-white w-100 p-2 mb-3">
         <form method="POST" action="{{ route('logout') }}">
             @csrf

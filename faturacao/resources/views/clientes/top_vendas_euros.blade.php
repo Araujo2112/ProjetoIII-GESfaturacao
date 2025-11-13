@@ -35,9 +35,8 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
-
-                {{-- sem paginação (é top-5), tal como pedido --}}
+                </div>~
+                
             </div>
         </div>
     </div>

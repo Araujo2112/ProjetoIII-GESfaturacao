@@ -16,7 +16,6 @@ class RankingController extends Controller
     private function headers(): array
     {
         return [
-            // EXATAMENTE como na Lista (sem "Bearer")
             'Authorization' => session('user.token'),
             'Accept'        => 'application/json',
         ];

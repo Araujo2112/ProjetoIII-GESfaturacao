@@ -13,17 +13,22 @@
 
   <body>
     <div class="container-fluid">
-      <div class="row" style="height: 100vh;">
-        @if (!request()->is('/'))
-          @include('partials.sidemenu')
-        @endif
+      @if (request()->routeIs('login')) 
+        @yield('content')
+      @else
 
+      <div class="row" style="height: 100vh;">
+        @include('partials.sidemenu')
+        <div class="col-1 p-0 m-0" style="background: transparent;"></div>
         <div class="col-11 p-0 m-0" style="background: transparent;">
           @yield('content')
         </div>
       </div>
+      @endif
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
   </body>
 </html>
+
+

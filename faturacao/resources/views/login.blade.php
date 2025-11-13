@@ -37,11 +37,6 @@
         <input type="password" name="password" id="passwordInput" class="form-control" placeholder="••••••••" required>
       </div>
 
-      <div class="mb-3 form-check">
-        <input type="checkbox" class="form-check-input" id="rememberCheck" name="remember">
-        <label class="form-check-label" for="rememberCheck">Manter sessão iniciada</label>
-      </div>
-
       <button type="submit" class="btn btn-primary">Entrar</button>
 
       <p class="small-muted mt-2">© {{ date('Y') }} GESFaturação</p>
