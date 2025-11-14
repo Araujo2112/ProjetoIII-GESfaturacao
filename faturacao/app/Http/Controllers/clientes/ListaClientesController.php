@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use App\Http\Controllers\Controller;
 
-class ListaController extends Controller
+class ListaClientesController extends Controller
 {
 public function lista(Request $request)
 {
@@ -24,7 +24,6 @@ public function lista(Request $request)
     if (!in_array($sort, $allowedSorts)) { $sort = 'name'; }
     if (!in_array($direction, ['asc', 'desc'])) { $direction = 'asc'; }
 
-    // Busca todos os clientes, SEM paginar nem pesquisar
     $response = Http::withHeaders([
         'Authorization' => $token,
         'Accept' => 'application/json',
@@ -35,7 +34,6 @@ public function lista(Request $request)
         $dados = $response->json();
         $clientes = collect($dados['data'] ?? []);
 
-        // Pesquisa local: filtra em vários campos se houver termo
         if ($search) {
             $searchLower = mb_strtolower($search);
             $clientes = $clientes->filter(function($cli) use ($searchLower) {
@@ -47,10 +45,9 @@ public function lista(Request $request)
                     || false !== stripos($cli['city'] ?? '', $searchLower)
                     || false !== stripos($cli['email'] ?? '', $searchLower)
                     || false !== stripos($cli['phone'] ?? '', $searchLower);
-            })->values(); // .values() para resetar as keys
+            })->values();
         }
 
-        // Ordenação local
         if ($direction === 'asc') {
             $clientes = $clientes->sortBy($sort)->values();
         } else {
@@ -58,13 +55,12 @@ public function lista(Request $request)
         }
     }
 
-    // Paginação local
     $totalRegistos = $clientes->count();
     $totalPaginas = max(1, ceil($totalRegistos / $rows));
     $paginaAtual = max(1, min($page, $totalPaginas));
     $clientesPaginados = $clientes->forPage($paginaAtual, $rows)->values();
 
-    return view('clientes.lista', [
+    return view('clientes.listaClientes', [
         'clientes' => $clientesPaginados->toArray(),
         'rows' => $rows,
         'paginaAtual' => $paginaAtual,

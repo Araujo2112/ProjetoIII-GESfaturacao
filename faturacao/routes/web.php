@@ -3,8 +3,12 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\clientes\ListaController;
-use App\Http\Controllers\clientes\RankingController;
+
+use App\Http\Controllers\clientes\ListaClientesController;
+use App\Http\Controllers\clientes\RankingClientesController;
+
+use App\Http\Controllers\fornecedores\ListaFornecController;
+use App\Http\Controllers\fornecedores\RankingFornecedoresController;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Arr;
@@ -62,31 +66,36 @@ Route::get('/', function () {
     return view('login');
 })->name('login');
 
-Route::post('/', [LoginController::class, 'process'])-> name('login.process');
-
-Route::get('/dashboard', [DashboardController::class, 'index'])-> name('dashboard');
-
-Route::get('/clientes', function () {
-    return view('clientes.lista');
-});
-
-Route::get('/clientes/rankings', function () {
-    return view('clientes.rankings');
-});
-
-Route::get('/clientes', [ListaController::class, 'lista'])-> name('clientes.lista');
-
-
-
-// Rankings
-Route::get('/clientes/top-euros', [RankingController::class, 'topEuros'])
-    ->name('clientes.top.euros');
-
-Route::get('/clientes/top-quantidade', [RankingController::class, 'topQuantidade'])
-    ->name('clientes.top.quantidade');
+Route::post('/', [LoginController::class, 'process'])
+    -> name('login.process');
 
 Route::post('/logout', function () {
-    session()->forget('user');   // limpa a tua sessão
-    // se estiveres a usar Auth::, podes também fazer: Auth::logout();
-    return redirect()->route('login');  // volta à página de login
+    session()->forget('user');
+    return redirect()->route('login');
 })->name('logout');
+
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    -> name('dashboard');
+
+
+//Clientes
+Route::get('/clientes', [ListaClientesController::class, 'lista'])
+    -> name('clientes.lista');
+
+Route::get('/clientes/top-euros', [RankingClientesController::class, 'topEuros'])
+    ->name('clientes.top.euros');
+
+Route::get('/clientes/top-quantidade', [RankingClientesController::class, 'topVendas'])
+    ->name('clientes.top.qtd');
+
+
+//Fornecedores
+Route::get('/fornecedores', [ListaFornecController::class, 'lista'])
+    -> name('fornecedores.lista');
+
+Route::get('/fornecedores/top-euros', [RankingFornecedoresController::class, 'topEuros'])
+    ->name('fornecedores.top.euros');
+
+Route::get('/fornecedores/top-quantidade', [RankingFornecedoresController::class, 'topCompras'])
+    ->name('fornecedores.top.qtd');
+

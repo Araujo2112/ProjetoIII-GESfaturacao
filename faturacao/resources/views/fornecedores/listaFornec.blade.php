@@ -1,11 +1,11 @@
 @extends('layout')
 
-@section('title', 'Lista de Clientes')
+@section('title', 'Lista de Fornecedores')
 
 @section('content')
 <div class="bg-dark-subtle d-flex justify-content-center align-items-start min-vh-100 pt-5">
     <div class="bg-white rounded shadow p-4 mx-auto" style="width:100%; max-width:1400px; min-height:380px;">
-            <h1 class="text-dark text-center">Lista de Clientes</h1>
+            <h1 class="text-dark text-center">Lista de Fornecedores</h1>
             
             <div class="d-flex justify-content-between align-items-center mb-3 gap-3" style="width:100%">
                 <form method="GET" class="mb-3 d-flex align-items-center gap-2">
@@ -40,24 +40,6 @@
                                         >
                                             Cód.
                                             @if(request('sort') === 'code')
-                                                @if(request('direction') === 'asc')
-                                                    ▲
-                                                @else
-                                                    ▼
-                                                @endif
-                                            @endif
-                                        </a>
-                                    </th>
-                                    <th>
-                                        <a 
-                                            class="text-dark text-decoration-none"
-                                            href="{{ request()->fullUrlWithQuery([
-                                            'sort' => 'internalCode',
-                                            'direction' => (request('sort') === 'internalCode' && request('direction') === 'asc') ? 'desc' : 'asc',
-                                            'page' => 1
-                                        ]) }}">
-                                            Cód. Int.
-                                            @if(request('sort') === 'internalCode')
                                                 @if(request('direction') === 'asc')
                                                     ▲
                                                 @else
@@ -160,15 +142,14 @@
                             </thead>
 
                             <tbody>
-                                @foreach ($clientes as $cliente)
+                                @foreach ($fornecedores as $fornec)
                                     <tr>
-                                        <td>{{ $cliente['code'] ?? '' }}</td>
-                                        <td>{{ $cliente['internalCode'] ?? '' }}</td>
-                                        <td>{{ $cliente['name'] ?? '' }}</td>
-                                        <td>{{ $cliente['vatNumber'] ?? '' }}</td>
-                                        <td>{{ $cliente['phone'] ?? '' }}</td>
-                                        <td>{{ $cliente['email'] ?? '' }}</td>
-                                        <td>{{ ($cliente['zipCode'] ?? '') . ' ' . ($cliente['city'] ?? '') }}</td>
+                                        <td>{{ $fornec['code'] ?? '' }}</td>
+                                        <td>{{ $fornec['name'] ?? '' }}</td>
+                                        <td>{{ $fornec['vatNumber'] ?? '' }}</td>
+                                        <td>{{ $fornec['phone'] ?? '' }}</td>
+                                        <td>{{ $fornec['email'] ?? '' }}</td>
+                                        <td>{{ ($fornec['zipCode'] ?? '') . ', ' . ($fornec['city'] ?? '') }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

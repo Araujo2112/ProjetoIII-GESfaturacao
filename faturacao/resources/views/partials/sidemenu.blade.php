@@ -15,9 +15,9 @@
                     Clientes
                 </button>
                 <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="{{ route('clientes.lista', [], false) }}">Lista</a></li>
+                    <li><a class="dropdown-item" href="{{ route('clientes.lista') }}">Lista</a></li>
                     <li><a class="dropdown-item" href="{{ route('clientes.top.euros') }}">Top € Vendas</a></li>
-                    <li><a class="dropdown-item" href="{{ route('clientes.top.quantidade') }}">Top Nº Vendas</a></li>
+                    <li><a class="dropdown-item" href="{{ route('clientes.top.qtd') }}">Top Nº Vendas</a></li>
                 </ul>
             </div>
 
@@ -28,8 +28,9 @@
                     Fornecedores
                 </button>
                 <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="#">Lista</a></li>
-                    <li><a class="dropdown-item" href="#">Rankings</a></li>
+                    <li><a class="dropdown-item" href="{{ route('fornecedores.lista') }}">Lista</a></li>
+                    <li><a class="dropdown-item" href="{{ route('fornecedores.top.euros') }}">Top € Compras</a></li>
+                    <li><a class="dropdown-item" href="{{ route('fornecedores.top.qtd') }}">Top Nº Compras</a></li>
                 </ul>
             </div>
 
