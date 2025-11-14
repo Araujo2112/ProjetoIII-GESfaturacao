@@ -10,6 +10,8 @@ use App\Http\Controllers\clientes\RankingClientesController;
 use App\Http\Controllers\fornecedores\ListaFornecController;
 use App\Http\Controllers\fornecedores\RankingFornecedoresController;
 
+use App\Http\Controllers\produtos\ListaProdutosController;
+
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Arr;
 
@@ -99,3 +101,6 @@ Route::get('/fornecedores/top-euros', [RankingFornecedoresController::class, 'to
 Route::get('/fornecedores/top-quantidade', [RankingFornecedoresController::class, 'topCompras'])
     ->name('fornecedores.top.qtd');
 
+//Produtos
+Route::get('/produtos', [ListaProdutosController::class, 'lista'])
+    -> name('produtos.lista');
