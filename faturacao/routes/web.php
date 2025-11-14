@@ -11,6 +11,9 @@ use App\Http\Controllers\fornecedores\ListaFornecController;
 use App\Http\Controllers\fornecedores\RankingFornecedoresController;
 
 use App\Http\Controllers\produtos\ListaProdutosController;
+use App\Http\Controllers\produtos\RankingProdutosController;
+use App\Http\Controllers\produtos\AbaixoStockProdutosController;
+use App\Http\Controllers\produtos\RankingLucroProdutosController;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Arr;
@@ -104,3 +107,12 @@ Route::get('/fornecedores/top-quantidade', [RankingFornecedoresController::class
 //Produtos
 Route::get('/produtos', [ListaProdutosController::class, 'lista'])
     -> name('produtos.lista');
+
+Route::get('/produtos/ranking', [RankingProdutosController::class, 'index'])
+     ->name('produtos.ranking');
+
+Route::get('/produtos/abaixo-stock', [AbaixoStockProdutosController::class, 'index'])
+     ->name('produtos.abaixoStock');
+
+Route::get('/produtos/ranking-lucro', [RankingLucroProdutosController::class, 'index'])
+    ->name('produtos.rankingLucro');

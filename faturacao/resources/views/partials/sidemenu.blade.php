@@ -42,8 +42,9 @@
                 </button>
                 <ul class="dropdown-menu">
                     <li><a class="dropdown-item" href="{{ route('produtos.lista') }}">Catálogo</a></li>
-                    <li><a class="dropdown-item" href="#">Rankings</a></li>
-                    <li><a class="dropdown-item" href="#">Abaixo do Stock</a></li>
+                    <li><a class="dropdown-item" href="{{ route('produtos.ranking') }}">Rankings</a></li>
+                    <li><a class="dropdown-item" href="{{ route('produtos.abaixoStock') }}">Abaixo do Stock</a></li>
+                    <li><a class="dropdown-item" href="{{ route('produtos.rankingLucro') }}">Top % Lucro</a></li>
                 </ul>
             </div>
 
