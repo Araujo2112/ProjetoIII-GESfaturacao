@@ -32,14 +32,15 @@ class RankingClientesController extends Controller
             if (empty($invoice['client']['id']) || empty($invoice['client']['name'])) {
                 continue;
             }
+
+            if (empty($invoice['status']['id']) || intval($invoice['status']['id']) !== 2) {
+                continue;
+            }
+
             $clientId = $invoice['client']['id'];
             $clientName = $invoice['client']['name'];
             $vatNumber = $invoice['client']['vatNumber'] ?? '';
             $total = (float)$invoice['total'];
-            $isPaid = (
-                (isset($invoice['status']['name']) && strtolower($invoice['status']['name']) == 'pago')
-                || (isset($invoice['balance']) && ((float)$invoice['balance'] == 0))
-            );
 
             if (!isset($ranking[$clientId])) {
                 $ranking[$clientId] = [
@@ -51,15 +52,12 @@ class RankingClientesController extends Controller
                 ];
             }
 
-            if ($isPaid) {
-                $ranking[$clientId]['total_euros'] += $total;
-            } else {
-                $ranking[$clientId]['total_euros'] -= $total;
-            }
+            $ranking[$clientId]['total_euros'] += $total;
             $ranking[$clientId]['num_vendas'] += 1;
         }
         return collect($ranking);
     }
+
 
     public function topEuros()
     {
@@ -67,11 +65,19 @@ class RankingClientesController extends Controller
         if ($ranking === null) {
             return redirect()->route('login');
         }
-        $top5 = $ranking->sortByDesc('total_euros')->take(5);
+
+        $top5 = $ranking->sortByDesc('total_euros')->take(5)->values();
+
+        $clientesNomes = $top5->pluck('cliente')->all();
+        $clientesTotais = $top5->pluck('total_euros')->all();
+
         return view('clientes.topVendasEuros', [
-            'top5ClientesEuros' => $top5
+            'top5ClientesEuros' => $top5,
+            'clientesNomes' => $clientesNomes,
+            'clientesTotais' => $clientesTotais,
         ]);
     }
+
 
     public function topVendas()
     {
@@ -79,9 +85,15 @@ class RankingClientesController extends Controller
         if ($ranking === null) {
             return redirect()->route('login');
         }
-        $top5 = $ranking->sortByDesc('num_vendas')->take(5);
+        $top5 = $ranking->sortByDesc('num_vendas')->take(5)->values();
+
+        $clientesNomes = $top5->pluck('cliente')->all();
+        $clientesVendas = $top5->pluck('num_vendas')->all();
+
         return view('clientes.topVendasQtd', [
-            'top5ClientesVendas' => $top5
+            'top5ClientesVendas' => $top5,
+            'clientesNomes' => $clientesNomes,
+            'clientesVendas' => $clientesVendas,
         ]);
     }
 }

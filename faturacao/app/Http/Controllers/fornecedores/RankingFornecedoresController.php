@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
-class RankingFornecedoresController extends Controller
-{
+    class RankingFornecedoresController extends Controller
+    {
     private function fornecedores()
     {
         if (!session()->has('user.token')) {
@@ -32,14 +32,15 @@ class RankingFornecedoresController extends Controller
             if (empty($invoice['supplier']['id']) || empty($invoice['supplier']['name'])) {
                 continue;
             }
+
+            if (empty($invoice['status']['id']) || intval($invoice['status']['id']) !== 2) {
+                continue;
+            }
+
             $supplierId = $invoice['supplier']['id'];
             $supplierName = $invoice['supplier']['name'];
             $vatNumber = $invoice['supplier']['vatNumber'] ?? '';
             $total = (float)$invoice['total'];
-            $isPaid = (
-                (isset($invoice['status']['name']) && strtolower($invoice['status']['name']) == 'pago')
-                || (isset($invoice['balance']) && ((float)$invoice['balance'] == 0))
-            );
 
             if (!isset($ranking[$supplierId])) {
                 $ranking[$supplierId] = [
@@ -50,11 +51,7 @@ class RankingFornecedoresController extends Controller
                 ];
             }
 
-            if ($isPaid) {
-                $ranking[$supplierId]['total_euros'] += $total;
-            } else {
-                $ranking[$supplierId]['total_euros'] -= $total;
-            }
+            $ranking[$supplierId]['total_euros'] += $total;
             $ranking[$supplierId]['num_compras'] += 1;
         }
         return collect($ranking);
@@ -66,11 +63,19 @@ class RankingFornecedoresController extends Controller
         if ($ranking === null) {
             return redirect()->route('login');
         }
-        $top5 = $ranking->sortByDesc('total_euros')->take(5);
+
+        $top5 = $ranking->sortByDesc('total_euros')->take(5)->values();
+
+        $fornecedoresNomes = $top5->pluck('fornecedor')->all();
+        $fornecedoresTotais = $top5->pluck('total_euros')->all();
+
         return view('fornecedores.topComprasEuros', [
-            'top5FornecedoresEuros' => $top5
+            'top5Fornecedores' => $top5,
+            'fornecedoresNomes' => $fornecedoresNomes,
+            'fornecedoresTotais' => $fornecedoresTotais,
         ]);
     }
+
 
     public function topCompras()
     {
@@ -78,9 +83,16 @@ class RankingFornecedoresController extends Controller
         if ($ranking === null) {
             return redirect()->route('login');
         }
-        $top5 = $ranking->sortByDesc('num_compras')->take(5);
+
+        $top5 = $ranking->sortByDesc('num_compras')->take(5)->values();
+
+        $fornecedoresNomes = $top5->pluck('fornecedor')->all();
+        $fornecedoresQtd = $top5->pluck('num_compras')->all();
+
         return view('fornecedores.topComprasQtd', [
-            'top5FornecedoresQtd' => $top5
+            'top5Fornecedores' => $top5,
+            'fornecedoresNomes' => $fornecedoresNomes,
+            'fornecedoresQtd' => $fornecedoresQtd,
         ]);
     }
 }

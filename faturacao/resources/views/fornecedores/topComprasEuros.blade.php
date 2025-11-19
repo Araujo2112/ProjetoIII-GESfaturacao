@@ -7,15 +7,10 @@
         <div class="bg-white rounded shadow p-4 mx-auto" style="width:100%; max-width:1400px; min-height:380px;">
             <h1 class="text-dark text-center">Top 5 Fornecedores — € Compras</h1>
 
-            @php
-                $fornecedoresEuros = collect($top5FornecedoresEuros ?? []);
-                $hasDataEuros = $fornecedoresEuros->count() > 0;
-            @endphp
-
             <div class="container py-4">
-                <div class="row d-flex align-items-stretch g-4">
-                    {{-- Coluna da tabela --}}
-                    <div class="col-lg-7" style="overflow-x:auto;">
+                <div class="row d-flex align-items-stretch">
+                    <div style="overflow-x:auto;">
+
                         <table class="table table-sm table-striped table-bordered table-hover">
                             <thead>
                                 <tr>
@@ -27,7 +22,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($fornecedoresEuros as $i => $c)
+                                @forelse(collect($top5Fornecedores ?? []) as $i => $c)
                                     <tr>
                                         <td>{{ $i + 1 }}</td>
                                         <td>{{ $c['fornecedor'] }}</td>
@@ -42,17 +37,16 @@
                                 @endforelse
                             </tbody>
                         </table>
-                    </div>
-
-                    {{-- Coluna do gráfico --}}
-                    <div class="col-lg-5 d-flex align-items-center">
-                        <div id="chart_fornecedores_euros" style="width: 100%; height: 350px;">
-                            @unless($hasDataEuros)
-                                <p class="text-center text-muted mt-5">Sem dados para gerar gráfico.</p>
-                            @endunless
-                        </div>
+                        
                     </div>
                 </div>
+
+                <div class="row mt-5">
+                    <div class="col-12">
+                        <div id="topFornecedoresEurosChart" style="height: 350px;"></div>
+                    </div>
+                </div>
+
             </div>
 
         </div>
@@ -60,41 +54,55 @@
 @endsection
 
 @push('scripts')
-<script type="text/javascript">
-    google.charts.load('current', {packages: ['corechart']});
-    google.charts.setOnLoadCallback(drawChartFornecedoresEuros);
-
-    function drawChartFornecedoresEuros() {
-        var hasData = {{ $hasDataEuros ? 'true' : 'false' }};
-
-        if (!hasData) {
-            return;
+<script>
+    var options = {
+        chart: {
+            type: 'bar',
+            height: 350,
+            toolbar: { show: false },
+        },
+        series: [{
+            name: 'Total Compras (€)',
+            data: @json($fornecedoresTotais)
+        }],
+        xaxis: {
+            categories: @json($fornecedoresNomes),
+            labels: {
+                rotate: -45,
+                style: { fontSize: '13px' }
+            }
+        },
+        yaxis: {
+            labels: {
+                formatter: function (value) {
+                    return '€ ' + value.toFixed(2);
+                }
+            }
+        },
+        tooltip: {
+            y: {
+                formatter: function(value) {
+                    return '€ ' + value.toFixed(2);
+                }
+            }
+        },
+        colors: ['#2980FF'],
+        plotOptions: {
+            bar: {
+                horizontal: false,
+                columnWidth: '55%',
+                endingShape: 'rounded'
+            }
+        },
+        dataLabels: {
+            enabled: true,
+            formatter: function(value) {
+                return '€ ' + value.toFixed(2);
+            }
         }
+    };
 
-        var data = new google.visualization.DataTable();
-        data.addColumn('string', 'Fornecedor');
-        data.addColumn('number', 'Total €');
-
-        @foreach ($fornecedoresEuros as $c)
-            data.addRow([
-                '{{ addslashes($c['fornecedor']) }}',
-                {{ (float) $c['total_euros'] }}
-            ]);
-        @endforeach
-
-        var options = {
-            title: 'Top 5 Fornecedores por Valor de Compras (€)',
-            legend: { position: 'none' },
-            hAxis: {
-                minValue: 0
-            },
-            chartArea: { width: '70%', height: '70%' }
-        };
-
-        var chart = new google.visualization.BarChart(
-            document.getElementById('chart_fornecedores_euros')
-        );
-        chart.draw(data, options);
-    }
+    var chart = new ApexCharts(document.querySelector("#topFornecedoresEurosChart"), options);
+    chart.render();
 </script>
 @endpush
