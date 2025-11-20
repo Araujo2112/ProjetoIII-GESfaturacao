@@ -88,12 +88,8 @@ class DashboardController extends Controller
 
     private function calcularPercentualRelativo(float $atual, float $anterior): array
     {
-        if ($anterior == 0) {
+        if ($anterior == 0 || $atual == 0) {
             return ['percent' => '0,00%', 'seta' => '→', 'positivo' => true];
-        }
-
-        if ($atual == 0) {
-            return ['percent' => '-100,00%', 'seta' => '↓', 'positivo' => false];
         }
 
         $diff = $atual - $anterior;

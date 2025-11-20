@@ -5,10 +5,11 @@ namespace App\Http\Controllers\clientes;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Carbon\Carbon;
 
 class RankingClientesController extends Controller
 {
-    private function clientes()
+    private function clientes($inicio = null, $fim = null)
     {
         if (!session()->has('user.token')) {
             return null;
@@ -32,9 +33,13 @@ class RankingClientesController extends Controller
             if (empty($invoice['client']['id']) || empty($invoice['client']['name'])) {
                 continue;
             }
-
             if (empty($invoice['status']['id']) || intval($invoice['status']['id']) !== 2) {
                 continue;
+            }
+
+            $data_fatura = $invoice['date'] ?? null;
+            if ($inicio && $fim && $data_fatura) {
+                if ($data_fatura < $inicio || $data_fatura > $fim) continue;
             }
 
             $clientId = $invoice['client']['id'];
@@ -44,7 +49,7 @@ class RankingClientesController extends Controller
 
             if (!isset($ranking[$clientId])) {
                 $ranking[$clientId] = [
-                    'id' => $clientId, 
+                    'id' => $clientId,
                     'cliente' => $clientName,
                     'nif' => $vatNumber,
                     'total_euros' => 0.0,
@@ -58,42 +63,74 @@ class RankingClientesController extends Controller
         return collect($ranking);
     }
 
-
-    public function topEuros()
+    public function topClientes(Request $request)
     {
-        $ranking = $this->clientes();
+        $hoje = Carbon::today()->format('Y-m-d');
+        $ontem = Carbon::yesterday()->format('Y-m-d');
+        $primeiroDoMes = Carbon::now()->startOfMonth()->format('Y-m-d');
+        $ultimoMesInicio = Carbon::now()->subMonth()->startOfMonth()->format('Y-m-d');
+        $ultimoMesFim = Carbon::now()->subMonth()->endOfMonth()->format('Y-m-d');
+        $primeiroDoAno = Carbon::now()->startOfYear()->format('Y-m-d');
+        $ultimoAnoInicio = Carbon::now()->subYear()->startOfYear()->format('Y-m-d');
+        $ultimoAnoFim = Carbon::now()->subYear()->endOfYear()->format('Y-m-d');
+
+        $periodo = $request->input('periodo', 'geral');
+        $inicio = $fim = null;
+        $periodoTexto = '';
+
+        switch($periodo) {
+            case 'geral':
+                $periodoTexto = "Todos os dados disponíveis";
+                $inicio = null;
+                $fim = null;
+                break;
+            case 'hoje':
+                $inicio = $hoje; $fim = $hoje;
+                $periodoTexto = "Hoje: $hoje";
+                break;
+            case 'ontem':
+                $inicio = $ontem; $fim = $ontem;
+                $periodoTexto = "Ontem: $ontem";
+                break;
+            case 'mes':
+                $inicio = $primeiroDoMes; $fim = $hoje;
+                $periodoTexto = "Mês: $primeiroDoMes a $hoje";
+                break;
+            case 'ultimo_mes':
+                $inicio = $ultimoMesInicio; $fim = $ultimoMesFim;
+                $periodoTexto = "Último Mês: $ultimoMesInicio a $ultimoMesFim";
+                break;
+            case 'ano':
+                $inicio = $primeiroDoAno; $fim = $hoje;
+                $periodoTexto = "Ano: $primeiroDoAno a $hoje";
+                break;
+            case 'ultimo_ano':
+                $inicio = $ultimoAnoInicio; $fim = $ultimoAnoFim;
+                $periodoTexto = "Último Ano: $ultimoAnoInicio a $ultimoAnoFim";
+                break;
+            case 'personalizado':
+                $inicio = $request->input('data_inicio');
+                $fim = $request->input('data_fim');
+                $periodoTexto = "Personalizado: $inicio a $fim";
+                break;
+        }
+
+        $ranking = $this->clientes($inicio, $fim);
         if ($ranking === null) {
             return redirect()->route('login');
         }
 
-        $top5 = $ranking->sortByDesc('total_euros')->take(5)->values();
 
-        $clientesNomes = $top5->pluck('cliente')->all();
-        $clientesTotais = $top5->pluck('total_euros')->all();
+        $top5Vendas = $ranking->sortByDesc('num_vendas')->take(5)->values();
+        $top5Euros = $ranking->sortByDesc('total_euros')->take(5)->values();
 
-        return view('clientes.topVendasEuros', [
-            'top5ClientesEuros' => $top5,
-            'clientesNomes' => $clientesNomes,
-            'clientesTotais' => $clientesTotais,
-        ]);
-    }
-
-
-    public function topVendas()
-    {
-        $ranking = $this->clientes();
-        if ($ranking === null) {
-            return redirect()->route('login');
-        }
-        $top5 = $ranking->sortByDesc('num_vendas')->take(5)->values();
-
-        $clientesNomes = $top5->pluck('cliente')->all();
-        $clientesVendas = $top5->pluck('num_vendas')->all();
-
-        return view('clientes.topVendasQtd', [
-            'top5ClientesVendas' => $top5,
-            'clientesNomes' => $clientesNomes,
-            'clientesVendas' => $clientesVendas,
+        return view('clientes.topClientes', [
+            'top5ClientesVendas' => $top5Vendas,
+            'top5ClientesEuros' => $top5Euros,
+            'periodoTexto' => $periodoTexto,
         ]);
     }
 }
+
+
+
