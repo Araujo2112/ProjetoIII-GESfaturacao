@@ -20,7 +20,6 @@
 body{
   min-height: 100svh;
   background: var(--gf-bg) fixed;
-  color: var(--gf-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

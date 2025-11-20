@@ -16,8 +16,7 @@
                 </button>
                 <ul class="dropdown-menu">
                     <li><a class="dropdown-item" href="{{ route('clientes.lista') }}">Lista</a></li>
-                    <li><a class="dropdown-item" href="{{ route('clientes.top.euros') }}">Top € Vendas</a></li>
-                    <li><a class="dropdown-item" href="{{ route('clientes.top.qtd') }}">Top Nº Vendas</a></li>
+                    <li><a class="dropdown-item" href="{{ route('clientes.top') }}">Top 5 Clientes</a></li>
                 </ul>
             </div>
 
@@ -29,8 +28,7 @@
                 </button>
                 <ul class="dropdown-menu">
                     <li><a class="dropdown-item" href="{{ route('fornecedores.lista') }}">Lista</a></li>
-                    <li><a class="dropdown-item" href="{{ route('fornecedores.top.euros') }}">Top € Compras</a></li>
-                    <li><a class="dropdown-item" href="{{ route('fornecedores.top.qtd') }}">Top Nº Compras</a></li>
+                    <li><a class="dropdown-item" href="{{ route('fornecedores.top') }}">Top € Compras</a></li>
                 </ul>
             </div>
 
@@ -41,9 +39,10 @@
                     Produtos
                 </button>
                 <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="#">Catálogo</a></li>
-                    <li><a class="dropdown-item" href="#">Rankings</a></li>
-                    <li><a class="dropdown-item" href="#">Abaixo do Stock</a></li>
+                    <li><a class="dropdown-item" href="{{ route('produtos.lista') }}">Catálogo</a></li>
+                    <li><a class="dropdown-item" href="{{ route('produtos.ranking') }}">Rankings</a></li>
+                    <li><a class="dropdown-item" href="{{ route('produtos.abaixoStock') }}">Abaixo do Stock</a></li>
+                    <li><a class="dropdown-item" href="{{ route('produtos.rankingLucro') }}">Top % Lucro</a></li>
                 </ul>
             </div>
 
@@ -75,11 +74,14 @@
                 <button type="button"
                         class="btn btn-dark nav-link text-white w-100 dropdown-toggle d-flex justify-content-between align-items-center text-start"
                         data-bs-toggle="dropdown" aria-expanded="false">
-                    Análise
+                    Relatórios
                 </button>
                 <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="#">Gráficos</a></li>
-                    <li><a class="dropdown-item" href="#">Comparativos</a></li>
+                    <li><a class="dropdown-item" href="#">Por Hora</a></li>
+                    <li><a class="dropdown-item" href="#">Diário</a></li>
+                    <li><a class="dropdown-item" href="#">Dias da Semana</a></li>
+                    <li><a class="dropdown-item" href="#">Semanal</a></li>
+                    <li><a class="dropdown-item" href="#">Mensal</a></li>
                 </ul>
             </div>
 
