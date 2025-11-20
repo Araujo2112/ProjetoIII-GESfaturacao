@@ -16,7 +16,7 @@
                 </button>
                 <ul class="dropdown-menu">
                     <li><a class="dropdown-item" href="{{ route('clientes.lista') }}">Lista</a></li>
-                    <li><a class="dropdown-item" href="{{ route('clientes.top') }}">Top 5 Clientes</a></li>
+                    <li><a class="dropdown-item" href="{{ route('clientes.top') }}">Top 5</a></li>
                 </ul>
             </div>
 
@@ -28,7 +28,7 @@
                 </button>
                 <ul class="dropdown-menu">
                     <li><a class="dropdown-item" href="{{ route('fornecedores.lista') }}">Lista</a></li>
-                    <li><a class="dropdown-item" href="{{ route('fornecedores.top') }}">Top € Compras</a></li>
+                    <li><a class="dropdown-item" href="{{ route('fornecedores.top') }}">Top 5</a></li>
                 </ul>
             </div>
 
