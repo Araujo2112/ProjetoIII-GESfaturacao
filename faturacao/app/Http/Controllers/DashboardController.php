@@ -17,6 +17,8 @@ class DashboardController extends Controller
 
         $validacao = $this->validateToken($token);
 
+        // ------------------ Faturas ---------------------- //
+        // Buscar faturas
         $faturasCollection = $this->listarTodasFaturasSemFiltro($token);
         if ($faturasCollection === false) {
             abort(500, 'Erro ao obter faturas da API');
@@ -27,6 +29,7 @@ class DashboardController extends Controller
             return $statusId != 5 && $statusId != 0;
         });
 
+        // Cálculos diários vendas
         $faturadoHojeValor = $this->calculaFaturacaoDia($faturasValidas);
         $ontem = date('Y-m-d', strtotime('-1 day'));
         $faturadoOntemValor = $this->calculaFaturacaoDia(
@@ -36,20 +39,24 @@ class DashboardController extends Controller
             date('Y', strtotime($ontem))
         );
 
+        // Cálculos mensais vendas
         $faturadoMesValor = $this->calculaFaturacaoMes($faturasValidas);
         $mesAnterior = date('Y-m', strtotime('first day of last month'));
         [$anoAnteriorMes, $mesAnteriorNum] = explode('-', $mesAnterior);
         $faturadoMesAnteriorValor = $this->calculaFaturacaoMes($faturasValidas, intval($mesAnteriorNum), intval($anoAnteriorMes));
 
+        // Cálculos anuais vendas
         $anoAtual = date('Y');
         $anoAnterior = $anoAtual - 1;
         $faturadoAnoValor = $this->calculaFaturacaoAno($faturasValidas);
         $faturadoAnoAnteriorValor = $this->calculaFaturacaoAno($faturasValidas, $anoAnterior);
 
+        // Variações percentuais vendas
         $variacaoHoje = $this->calcularPercentualRelativo($faturadoHojeValor, $faturadoOntemValor);
         $variacaoMes = $this->calcularPercentualRelativo($faturadoMesValor, $faturadoMesAnteriorValor);
         $variacaoAno = $this->calcularPercentualRelativo($faturadoAnoValor, $faturadoAnoAnteriorValor);
 
+        // Dados para gráfico últimos 30 dias (vendas)
         $datasFormatadas = [];
         $totaisPorDia = [];
         for ($i = 29; $i >= 0; $i--) {
@@ -66,6 +73,45 @@ class DashboardController extends Controller
             $totaisPorDia[] = round($totalDia, 2);
         }
 
+        // Dados para gráfico mensal comparado vendas (ano atual vs anterior)
+        $faturacaoMesAnoAtual = [];
+        $faturacaoMesAnoAnterior = [];
+        for ($mes = 1; $mes <= 12; $mes++) {
+            $faturacaoMesAnoAtual[] = $this->calculaFaturacaoMes($faturasValidas, $mes, $anoAtual);
+            $faturacaoMesAnoAnterior[] = $this->calculaFaturacaoMes($faturasValidas, $mes, $anoAnterior);
+        }
+        $graficoMeses = [
+            'labels' => ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+            'atual' => $faturacaoMesAnoAtual,
+            'anterior' => $faturacaoMesAnoAnterior,
+        ];
+
+
+        // ------------------ COMPRAS ---------------------- //
+        // Buscar compras
+        $comprasCollection = $this->listarTodasComprasSemFiltro($token);
+        if ($comprasCollection === false) {
+            abort(500, 'Erro ao obter compras da API');
+        }
+
+        $comprasValidas = $comprasCollection->filter(function ($compra) {
+            $statusId = $compra['status']['id'] ?? 0;
+            return $statusId != 5 && $statusId != 0;
+        });
+
+        // Dados para gráfico mensal comparado compras (ano atual vs anterior)
+        $comprasMesAnoAtual = [];
+        $comprasMesAnoAnterior = [];
+        for ($mes = 1; $mes <= 12; $mes++) {
+            $comprasMesAnoAtual[] = $this->calculaComprasMes($comprasValidas, $mes, $anoAtual);
+            $comprasMesAnoAnterior[] = $this->calculaComprasMes($comprasValidas, $mes, $anoAnterior);
+        }
+        $graficoComprasMeses = [
+            'labels' => ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+            'atual' => $comprasMesAnoAtual,
+            'anterior' => $comprasMesAnoAnterior,
+        ];
+
         return view('dashboard', [
             'faturadoHoje' => number_format($faturadoHojeValor, 2, ',', '.'),
             'faturadoOntem' => number_format($faturadoOntemValor, 2, ',', '.'),
@@ -81,25 +127,10 @@ class DashboardController extends Controller
 
             'graficoDatas' => $datasFormatadas,
             'graficoTotais' => $totaisPorDia,
+
+            'graficoMeses' => $graficoMeses,
+            'graficoComprasMeses' => $graficoComprasMeses,
         ]);
-    }
-
-
-
-    private function calcularPercentualRelativo(float $atual, float $anterior): array
-    {
-        if ($anterior == 0 || $atual == 0) {
-            return ['percent' => '0,00%', 'seta' => '→', 'positivo' => true];
-        }
-
-        $diff = $atual - $anterior;
-        $percent = ($diff / abs($anterior)) * 100;
-        $positivo = $percent >= 0;
-
-        $seta = $positivo ? '↑' : '↓';
-        $percentFormatado = number_format($percent, 2, ',', '.') . '%';
-
-        return ['percent' => $percentFormatado, 'seta' => $seta, 'positivo' => $positivo];
     }
 
 
@@ -134,7 +165,6 @@ class DashboardController extends Controller
                 ]);
 
                 if (!$response->successful()) {
-                    \Log::error('Erro na API: ' . $response->body());
                     return false;
                 }
 
@@ -149,6 +179,37 @@ class DashboardController extends Controller
 
         return collect($todasFaturas);
     }
+
+    private function listarTodasComprasSemFiltro($token)
+    {
+        $endpoint = 'https://api.gesfaturacao.pt/api/v1.0.4/purchases/invoices';
+        $todasCompras = [];
+        $page = 1;
+
+        do {
+            $response = Http::withHeaders([
+                'Authorization' => $token,
+                'Accept' => 'application/json',
+            ])->get($endpoint, [
+                'page' => $page,
+            ]);
+
+            if (!$response->successful()) {
+                \Log::error('Erro na API Compras: ' . $response->body());
+                return false;
+            }
+
+            $data = $response->json();
+            $compras = $data['data'] ?? [];
+            $todasCompras = array_merge($todasCompras, $compras);
+
+            $lastPage = $data['pagination']['lastPage'] ?? 1;
+            $page++;
+        } while ($page <= $lastPage);
+
+        return collect($todasCompras);
+    }
+
 
     private function calculaFaturacaoDia(Collection $faturasValidas, $dia = null, $mes = null, $ano = null): float
     {
@@ -180,4 +241,31 @@ class DashboardController extends Controller
         return $faturasValidas->filter(fn($fatura) => substr($fatura['date'], 0, 4) === $prefixoData)
                              ->sum(fn($fatura) => floatval($fatura['total'] ?? 0));
     }
+
+    private function calcularPercentualRelativo(float $atual, float $anterior): array
+    {
+        if ($anterior == 0 || $atual == 0) {
+            return ['percent' => '0,00%', 'seta' => '→', 'positivo' => true];
+        }
+
+        $diff = $atual - $anterior;
+        $percent = ($diff / abs($anterior)) * 100;
+        $positivo = $percent >= 0;
+
+        $seta = $positivo ? '↑' : '↓';
+        $percentFormatado = number_format($percent, 2, ',', '.') . '%';
+
+        return ['percent' => $percentFormatado, 'seta' => $seta, 'positivo' => $positivo];
+    }
+
+    private function calculaComprasMes(Collection $comprasValidas, $mes = null, $ano = null): float
+    {
+        $ano = $ano ?? date('Y');
+        $mes = $mes ?? date('m');
+        $prefixoData = sprintf('%04d-%02d', $ano, $mes);
+
+        return $comprasValidas->filter(fn($compra) => substr($compra['date'], 0, 7) === $prefixoData)
+                            ->sum(fn($compra) => floatval($compra['total'] ?? 0));
+    }
+
 }

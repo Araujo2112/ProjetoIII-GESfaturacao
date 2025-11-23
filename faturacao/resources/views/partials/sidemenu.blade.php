@@ -78,7 +78,7 @@
                 </button>
                 <ul class="dropdown-menu">
                     <li><a class="dropdown-item" href="#">Por Hora</a></li>
-                    <li><a class="dropdown-item" href="#">Diário</a></li>
+                    <li><a class="dropdown-item" href="{{ route('relatorios.diario') }}">Diário</a></li>
                     <li><a class="dropdown-item" href="#">Dias da Semana</a></li>
                     <li><a class="dropdown-item" href="#">Semanal</a></li>
                     <li><a class="dropdown-item" href="#">Mensal</a></li>

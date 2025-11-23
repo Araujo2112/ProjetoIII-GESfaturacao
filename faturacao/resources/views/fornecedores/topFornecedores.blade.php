@@ -29,6 +29,7 @@
             <button type="submit" class="btn btn-primary" style="width:auto; max-width:150px; white-space:nowrap;">Aplicar Filtro</button>
         </form>
 
+        {{-- Gráfico/Tabela --}}
         @if(empty($top5FornecedoresQtd) || empty($top5FornecedoresEuros))
             <div class="text-center py-5">
                 <h4 class="fw-semibold mt-4 mb-2">Sem dados em Fornecedores</h4>

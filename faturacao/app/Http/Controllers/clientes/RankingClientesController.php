@@ -120,7 +120,6 @@ class RankingClientesController extends Controller
             return redirect()->route('login');
         }
 
-
         $top5Vendas = $ranking->sortByDesc('num_vendas')->take(5)->values();
         $top5Euros = $ranking->sortByDesc('total_euros')->take(5)->values();
 

@@ -21,16 +21,29 @@ document.addEventListener('DOMContentLoaded', function () {
         const name = type === 'qtd' ? 'Nº de Compras' : 'Total (€)';
         const yFormatter = type === 'qtd'
             ? (value) => value.toFixed(0)
-            : (value) => `${value.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+            : (value) => `${value.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
         const tooltipFormatter = type === 'qtd'
             ? (value) => value.toFixed(0) + ' compras'
-            : (value) => `${value.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+            : (value) => `${value.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+
         const options = {
-            chart: { type: 'bar', height: 350, toolbar: { show: false }},
-            series: [{ name: name, data: data }],
+            chart: { type: 'bar', 
+                    height: 350, 
+                    toolbar: { 
+                        show: true 
+                    }
+                },
+            series: [{ 
+                name: name,
+                data: data 
+            }],
             xaxis: {
                 categories: nomes,
-                labels: { rotate: -45, style: { fontSize: '13px' } }
+                labels: { 
+                    style: { 
+                        fontSize: '13px' 
+                    } 
+                }
             },
             yaxis: { labels: { formatter: yFormatter } },
             tooltip: { y: { formatter: tooltipFormatter } },
@@ -66,7 +79,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Inicializa com Qtd
     if (window.topFornecedoresData && window.topFornecedoresData.valoresQtd.length > 0) {
         renderChart('qtd');
         renderTable('qtd');

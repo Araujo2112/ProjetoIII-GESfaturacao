@@ -21,20 +21,41 @@ document.addEventListener('DOMContentLoaded', function () {
         const name = type === 'qtd' ? 'Nº de Vendas' : 'Total (€)';
         const yFormatter = type === 'qtd'
             ? (value) => value.toFixed(0)
-            : (value) => `${value.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+            : (value) => `${value.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
         const tooltipFormatter = type === 'qtd'
             ? (value) => value.toFixed(0) + ' vendas'
-            : (value) => `${value.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+            : (value) => `${value.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
         const options = {
-            chart: { type: 'bar', height: 350, toolbar: { show: false }},
-            series: [{ name: name, data: data }],
+            chart: { 
+                type: 'bar',
+                height: 350,
+                toolbar: {
+                    show: true 
+                }
+            },
+            series: [{
+                name: name,
+                data: data 
+            }],
             xaxis: {
                 categories: nomes,
-                labels: { rotate: -45, style: { fontSize: '13px' } }
+                labels: { 
+                    style: { 
+                        fontSize: '13px' 
+                    } 
+                }
             },
-            yaxis: { labels: { formatter: yFormatter } },
-            tooltip: { y: { formatter: tooltipFormatter } },
+            yaxis: { 
+                labels: { 
+                    formatter: yFormatter 
+                } 
+            },
+            tooltip: { 
+                y: { 
+                    formatter: tooltipFormatter 
+                } 
+            },
             plotOptions: {
                 bar: {
                     horizontal: false,
@@ -71,7 +92,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Inicialização padrão
     if (window.topClientesData && window.topClientesData.vendas.length > 0) {
         renderChart('qtd');
         renderTable('qtd');
@@ -81,7 +101,6 @@ document.addEventListener('DOMContentLoaded', function () {
         btnEuros.classList.add('btn-outline-primary');
     }
 
-    // Listeners
     btnQtd.addEventListener('click', function() {
         renderChart('qtd');
         renderTable('qtd');

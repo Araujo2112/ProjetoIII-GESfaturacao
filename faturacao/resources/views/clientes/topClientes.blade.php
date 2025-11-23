@@ -7,7 +7,7 @@
         <div class="bg-white rounded shadow p-4 mx-auto" style="width:100%; max-width:1400px; min-height:380px;">
             <h1 class="text-dark text-center">Top 5 Clientes</h1>
 
-            {{-- FILTRO DE PERÍODO --}}
+            {{-- Filtro --}}
             <form method="GET" class="d-flex align-items-center mb-4" style="gap:1rem;" id="filtroForm">
                 <label class="mb-0 fw-semibold">Período:</label>
                 <select name="periodo" id="periodoSelect" class="form-select" style="width:auto;">
@@ -39,6 +39,7 @@
                     </div>
                 </div>
             @else
+
                 <div class="row mt-5">
                     <div class="bg-light px-3 py-2 rounded border d-flex align-items-center justify-content-between">
                         <div>
@@ -54,6 +55,7 @@
                         <div id="topClientesVendasChart" style="height: 350px;"></div>
                     </div>
                 </div>
+
                 <div class="row d-flex align-items-stretch mt-4">
                     <div style="overflow-x:auto;">
                         <table class="table table-sm table-striped table-bordered table-hover">
@@ -67,10 +69,11 @@
                                     <th class="text-end">Total (€)</th>
                                 </tr>
                             </thead>
-                            <tbody id="topClientesTableBody"><!-- JS fill --></tbody>
+                            <tbody id="topClientesTableBody"></tbody>
                         </table>
                     </div>
                 </div>
+
             @endif
         </div>
     </div>
@@ -87,6 +90,7 @@
             }
         </script>
     @endif
+    
 @endsection
 
 @push('scripts')
