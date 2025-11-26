@@ -16,6 +16,7 @@ use App\Http\Controllers\produtos\AbaixoStockProdutosController;
 use App\Http\Controllers\produtos\RankingLucroProdutosController;
 
 use App\Http\Controllers\relatorios\DiarioVendasController;
+use App\Http\Controllers\relatorios\PagamentosController;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Arr;
@@ -67,3 +68,6 @@ Route::get('/produtos/ranking-lucro', [RankingLucroProdutosController::class, 'i
 //Relatorios
 Route::get('/relatorios/diario', [DiarioVendasController::class, 'index'])
     -> name('relatorios.diario');
+
+    Route::get('/relatorios/pagamentos', [PagamentosController::class, 'index'])
+    -> name('relatorios.pagamentos');

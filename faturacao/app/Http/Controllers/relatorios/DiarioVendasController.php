@@ -135,40 +135,42 @@ class DiarioVendasController extends Controller
     private function buscarDetalhesFaturas(string $token, Collection $faturasValidas): Collection
     {
         $detalhes = collect();
+        $batchSize = 50;
 
-        foreach ($faturasValidas as $fatura) {
+        $faturasValidas->chunk($batchSize)->each(function ($lote) use ($token, &$detalhes) {
+            $responses = Http::pool(function ($pool) use ($lote, $token) {
+                foreach ($lote as $fatura) {
+                    $id = $fatura['id'];
+                    $number = $fatura['number'] ?? '';
+                    $prefix = strtoupper(substr($number, 0, 2));
 
-            $id = $fatura['id'];
-            $number = $fatura['number'] ?? '';
-            $prefix = strtoupper(substr($number, 0, 2));
+                    $tipo = match ($prefix) {
+                        'FT' => 'invoices',
+                        'FS' => 'simplified-invoices',
+                        'FR' => 'receipt-invoices',
+                        default => null,
+                    };
 
-            switch ($prefix) {
-                case 'FT':
-                    $tipo = 'invoices';
-                    break;
-                case 'FS':
-                    $tipo = 'simplified-invoices';
-                    break;
-                case 'FR':
-                    $tipo = 'receipt-invoices';
-                    break;
+                    if ($tipo) {
+                        $url = "https://api.gesfaturacao.pt/api/v1.0.4/sales/{$tipo}/{$id}";
+                        $pool->withHeaders([
+                            'Authorization' => $token,
+                            'Accept' => 'application/json',
+                        ])->get($url);
+                    }
+                }
+            });
+
+            foreach ($responses as $response) {
+                if ($response instanceof \Illuminate\Http\Client\Response && $response->successful()) {
+                    $detalhes->push($response->json('data'));
+                } elseif ($response instanceof \Exception) {
+                    \Log::error('Erro na requisição: Exceção - ' . $response->getMessage());
+                } else {
+                    \Log::error('Erro na requisição: ' . (method_exists($response, 'status') ? $response->status() : 'Desconhecido') . ' - ' . (method_exists($response, 'body') ? $response->body() : ''));
+                }
             }
-
-            $url = match ($tipo) {
-                'invoices' => "https://api.gesfaturacao.pt/api/v1.0.4/sales/invoices/{$id}",
-                'simplified-invoices' => "https://api.gesfaturacao.pt/api/v1.0.4/sales/simplified-invoices/{$id}",
-                'receipt-invoices' => "https://api.gesfaturacao.pt/api/v1.0.4/sales/receipt-invoices/{$id}",
-            };
-
-            $response = Http::withHeaders([
-                'Authorization' => $token,
-                'Accept' => 'application/json',
-            ])->get($url);
-
-            if ($response->successful()) {
-                $detalhes->push($response->json('data'));
-            }
-        }
+        });
 
         return $detalhes;
     }
@@ -258,24 +260,18 @@ class DiarioVendasController extends Controller
         $todasFaturas = [];
 
         foreach ($endpoints as $endpoint) {
-            $page = 1;
-            do {
-                $response = Http::withHeaders([
-                    'Authorization' => $token,
-                    'Accept' => 'application/json',
-                ])->get($endpoint, ['page' => $page]);
+            $response = Http::withHeaders([
+                'Authorization' => $token,
+                'Accept' => 'application/json',
+            ])->get($endpoint);
 
-                if (!$response->successful()) {
-                    return false;
-                }
+            if (!$response->successful()) {
+                return false;
+            }
 
-                $data = $response->json();
-                $faturas = $data['data'] ?? [];
-                $todasFaturas = array_merge($todasFaturas, $faturas);
-
-                $lastPage = $data['pagination']['lastPage'] ?? 1;
-                $page++;
-            } while ($page <= $lastPage);
+            $data = $response->json();
+            $faturas = $data['data'] ?? [];
+            $todasFaturas = array_merge($todasFaturas, $faturas);
         }
 
         return collect($todasFaturas);

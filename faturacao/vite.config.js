@@ -10,7 +10,9 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/js/dashboard.js',
                 'resources/js/clientes/topClientes.js',
-                'resources/js/fornecedores/topFornecedores.js'
+                'resources/js/fornecedores/topFornecedores.js',
+                'resources/js/relatorios/diarioVendas.js',
+                'resources/js/relatorios/pagamentos.js'
             ],
             refresh: true,
         }),

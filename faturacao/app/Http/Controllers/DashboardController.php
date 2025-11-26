@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
@@ -17,20 +18,17 @@ class DashboardController extends Controller
 
         $validacao = $this->validateToken($token);
 
-        // ------------------ Faturas ---------------------- //
-        // Buscar faturas
+        // ----------------- Faturas ------------------
         $faturasCollection = $this->listarTodasFaturasSemFiltro($token);
-        if ($faturasCollection === false) {
-            abort(500, 'Erro ao obter faturas da API');
-        }
 
-        $faturasValidas = $faturasCollection->filter(function ($fatura) {
-            $statusId = $fatura['status']['id'] ?? 0;
-            return $statusId != 5 && $statusId != 0;
-        });
+        if ($faturasCollection === false) 
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
 
-        // Cálculos diários vendas
+        $faturasValidas = $this->filtrarPorStatus($faturasCollection);
+
+        // Cálculos diários de vendas
         $faturadoHojeValor = $this->calculaFaturacaoDia($faturasValidas);
+
         $ontem = date('Y-m-d', strtotime('-1 day'));
         $faturadoOntemValor = $this->calculaFaturacaoDia(
             $faturasValidas,
@@ -39,41 +37,42 @@ class DashboardController extends Controller
             date('Y', strtotime($ontem))
         );
 
-        // Cálculos mensais vendas
+        // Cálculos mensais de vendas
         $faturadoMesValor = $this->calculaFaturacaoMes($faturasValidas);
+
         $mesAnterior = date('Y-m', strtotime('first day of last month'));
         [$anoAnteriorMes, $mesAnteriorNum] = explode('-', $mesAnterior);
+
         $faturadoMesAnteriorValor = $this->calculaFaturacaoMes($faturasValidas, intval($mesAnteriorNum), intval($anoAnteriorMes));
 
-        // Cálculos anuais vendas
+        // Cálculos anuais de vendas
         $anoAtual = date('Y');
         $anoAnterior = $anoAtual - 1;
+
         $faturadoAnoValor = $this->calculaFaturacaoAno($faturasValidas);
         $faturadoAnoAnteriorValor = $this->calculaFaturacaoAno($faturasValidas, $anoAnterior);
 
-        // Variações percentuais vendas
+        // Variações percentuais de vendas
         $variacaoHoje = $this->calcularPercentualRelativo($faturadoHojeValor, $faturadoOntemValor);
         $variacaoMes = $this->calcularPercentualRelativo($faturadoMesValor, $faturadoMesAnteriorValor);
         $variacaoAno = $this->calcularPercentualRelativo($faturadoAnoValor, $faturadoAnoAnteriorValor);
 
-        // Dados para gráfico últimos 30 dias (vendas)
+        // Dados para gráfico últimos 7 dias (vendas)
         $datasFormatadas = [];
         $totaisPorDia = [];
-        for ($i = 29; $i >= 0; $i--) {
+
+        for ($i = 6; $i >= 0; $i--) {
             $data = now()->subDays($i);
-            $dataFormatada = $data->format('d-m');
+            $datasFormatadas[] = $data->format('d-m');
 
             $totalDia = $faturasValidas->filter(function ($fatura) use ($data) {
                 return substr($fatura['date'], 0, 10) === $data->format('Y-m-d');
-            })->sum(function ($fatura) {
-                return floatval($fatura['total'] ?? 0);
-            });
+            })->sum(fn($fatura) => floatval($fatura['total'] ?? 0));
 
-            $datasFormatadas[] = $dataFormatada;
             $totaisPorDia[] = round($totalDia, 2);
         }
 
-        // Dados para gráfico mensal comparado vendas (ano atual vs anterior)
+        // Gráfico mensal comparado (faturas)
         $faturacaoMesAnoAtual = [];
         $faturacaoMesAnoAnterior = [];
         for ($mes = 1; $mes <= 12; $mes++) {
@@ -86,20 +85,14 @@ class DashboardController extends Controller
             'anterior' => $faturacaoMesAnoAnterior,
         ];
 
-
-        // ------------------ COMPRAS ---------------------- //
-        // Buscar compras
+        // ------------------ Compras -------------------
         $comprasCollection = $this->listarTodasComprasSemFiltro($token);
-        if ($comprasCollection === false) {
-            abort(500, 'Erro ao obter compras da API');
-        }
 
-        $comprasValidas = $comprasCollection->filter(function ($compra) {
-            $statusId = $compra['status']['id'] ?? 0;
-            return $statusId != 5 && $statusId != 0;
-        });
+        if ($comprasCollection === false) 
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
 
-        // Dados para gráfico mensal comparado compras (ano atual vs anterior)
+        $comprasValidas = $this->filtrarPorStatus($comprasCollection);
+
         $comprasMesAnoAtual = [];
         $comprasMesAnoAnterior = [];
         for ($mes = 1; $mes <= 12; $mes++) {
@@ -111,6 +104,47 @@ class DashboardController extends Controller
             'atual' => $comprasMesAnoAtual,
             'anterior' => $comprasMesAnoAnterior,
         ];
+
+        // ------------------ Recibos -------------------
+        $faturasCollection = $this->listarTodasFaturasSemFiltro($token);
+
+
+        $datasFormatadas = [];
+        $quantidadesPorDiaFormatado = [];
+
+        for ($i = 6; $i >= 0; $i--) {
+            $data = now()->subDays($i);
+            $dataFormatada = $data->format('d-m');
+            $datasFormatadas[] = $dataFormatada;
+
+            $quantidadesPorDiaFormatado[$dataFormatada] = [];
+
+            $faturasDoDia = $faturasValidas->filter(function ($fatura) use ($data) {
+                return substr($fatura['date'], 0, 10) === $data->format('Y-m-d');
+            });
+
+            foreach ($faturasDoDia as $fatura) {
+                foreach ($fatura['lines'] ?? [] as $line) {
+                    $idArtigo = $line['article']['id'] ?? null;
+                    if (!$idArtigo) continue;
+
+                    $produto = $this->buscarProdutoPorId($idArtigo, $token);
+                    $categoria = $produto['category']['name'] ?? 'Desconhecido';
+
+                    $qtd = floatval($line['quantity'] ?? 0);
+                    $quantidadesPorDiaFormatado[$dataFormatada][$categoria] = ($quantidadesPorDiaFormatado[$dataFormatada][$categoria] ?? 0) + $qtd;
+                }
+            }
+        }
+
+
+        $inicioSeteDias = date('Y-m-d', strtotime('-6 days'));
+        $fimSeteDias = date('Y-m-d');
+        $faturasValidas = $this->filtrarPorStatusEData($faturasCollection, $inicioSeteDias, $fimSeteDias);
+
+        $faturasDetalhadas = $this->buscarDetalhesFaturas($token, $faturasValidas);
+
+        $dadosCategorias = $this->categoriasProdutos($token, $faturasDetalhadas);
 
         return view('dashboard', [
             'faturadoHoje' => number_format($faturadoHojeValor, 2, ',', '.'),
@@ -130,142 +164,232 @@ class DashboardController extends Controller
 
             'graficoMeses' => $graficoMeses,
             'graficoComprasMeses' => $graficoComprasMeses,
+
+            'dadosCategorias' => $dadosCategorias,
         ]);
     }
 
-
-    private function validateToken($token)
-    {
+    // Métodos GENÉRICOS e ESPECÍFICOS
+    private function validateToken($token) {
         $response = Http::withHeaders([
             'Authorization' => $token,
             'Accept' => 'application/json',
         ])->post('https://api.gesfaturacao.pt/api/v1.0.4/validate-token', []);
-
         return $response->json();
     }
 
-    private function listarTodasFaturasSemFiltro($token)
-    {
+    private function filtrarPorStatus(Collection $items) {
+        return $items->filter(fn($item) => !in_array($item['status']['id'] ?? 0, [0, 5]));
+    }
+
+    private function filtrarPorStatusEData(Collection $items, $inicio, $fim) {
+        return $items->filter(function ($item) use ($inicio, $fim) {
+            $statusId = $item['status']['id'] ?? 0;
+            if ($statusId == 5 || $statusId == 0) return false;
+            $dataItem = substr($item['date'], 0, 10);
+            return $dataItem >= $inicio && $dataItem <= $fim;
+        });
+    }
+
+    // ----- Faturas -----
+    private function listarTodasFaturasSemFiltro($token) {
         $endpoints = [
             'https://api.gesfaturacao.pt/api/v1.0.4/sales/invoices',
             'https://api.gesfaturacao.pt/api/v1.0.4/sales/simplified-invoices',
             'https://api.gesfaturacao.pt/api/v1.0.4/sales/receipt-invoices',
         ];
-
         $todasFaturas = [];
-
         foreach ($endpoints as $endpoint) {
             $page = 1;
             do {
                 $response = Http::withHeaders([
                     'Authorization' => $token,
                     'Accept' => 'application/json',
-                ])->get($endpoint, [
-                    'page' => $page,
-                ]);
-
-                if (!$response->successful()) {
-                    return false;
-                }
-
+                ])->get($endpoint, ['page' => $page]);
+                if (!$response->successful()) return false;
                 $data = $response->json();
                 $faturas = $data['data'] ?? [];
                 $todasFaturas = array_merge($todasFaturas, $faturas);
-
                 $lastPage = $data['pagination']['lastPage'] ?? 1;
                 $page++;
             } while ($page <= $lastPage);
         }
-
         return collect($todasFaturas);
     }
 
-    private function listarTodasComprasSemFiltro($token)
+    private function calculaFaturacaoDia(Collection $faturasValidas, $dia = null, $mes = null, $ano = null): float {
+        $ano = $ano ?? date('Y');
+        $mes = $mes ?? date('m');
+        $dia = $dia ?? date('d');
+        $dateStr = sprintf('%04d-%02d-%02d', $ano, $mes, $dia);
+        return $faturasValidas->filter(fn($fatura) => substr($fatura['date'], 0, 10) === $dateStr)
+            ->sum(fn($fatura) => floatval($fatura['total'] ?? 0));
+    }
+    private function calculaFaturacaoMes(Collection $faturasValidas, $mes = null, $ano = null): float {
+        $ano = $ano ?? date('Y');
+        $mes = $mes ?? date('m');
+        $prefixoData = sprintf('%04d-%02d', $ano, $mes);
+        return $faturasValidas->filter(fn($fatura) => substr($fatura['date'], 0, 7) === $prefixoData)
+            ->sum(fn($fatura) => floatval($fatura['total'] ?? 0));
+    }
+    private function calculaFaturacaoAno(Collection $faturasValidas, $ano = null): float {
+        $ano = $ano ?? date('Y');
+        $prefixoData = sprintf('%04d', $ano);
+        return $faturasValidas->filter(fn($fatura) => substr($fatura['date'], 0, 4) === $prefixoData)
+            ->sum(fn($fatura) => floatval($fatura['total'] ?? 0));
+    }
+
+    private function calcularPercentualRelativo(float $atual, float $anterior): array {
+        if ($anterior == 0 || $atual == 0) return ['percent' => '0,00%', 'seta' => '→', 'positivo' => true];
+        $diff = $atual - $anterior;
+        $percent = ($diff / abs($anterior)) * 100;
+        $positivo = $percent >= 0;
+        $seta = $positivo ? '↑' : '↓';
+        $percentFormatado = number_format($percent, 2, ',', '.') . '%';
+        return ['percent' => $percentFormatado, 'seta' => $seta, 'positivo' => $positivo];
+    }
+
+    private function buscarDetalhesFaturas(string $token, Collection $faturasValidas): Collection
     {
+        $detalhes = collect();
+        $batchSize = 50;
+
+        $faturasValidas->chunk($batchSize)->each(function ($lote) use ($token, &$detalhes) {
+            $responses = Http::pool(function ($pool) use ($lote, $token) {
+                foreach ($lote as $fatura) {
+                    $id = $fatura['id'];
+                    $number = $fatura['number'] ?? '';
+                    $prefix = strtoupper(substr($number, 0, 2));
+
+                    $tipo = match ($prefix) {
+                        'FT' => 'invoices',
+                        'FS' => 'simplified-invoices',
+                        'FR' => 'receipt-invoices',
+                        default => null,
+                    };
+
+                    if ($tipo) {
+                        $url = "https://api.gesfaturacao.pt/api/v1.0.4/sales/{$tipo}/{$id}";
+                        $pool->withHeaders([
+                            'Authorization' => $token,
+                            'Accept' => 'application/json',
+                        ])->get($url);
+                    }
+                }
+            });
+
+            foreach ($responses as $response) {
+                if ($response instanceof \Illuminate\Http\Client\Response && $response->successful()) {
+                    $detalhes->push($response->json('data'));
+                } elseif ($response instanceof \Exception) {
+                    \Log::error('Erro na requisição: Exceção - ' . $response->getMessage());
+                } else {
+                    \Log::error('Erro na requisição: ' . (method_exists($response, 'status') ? $response->status() : 'Desconhecido') . ' - ' . (method_exists($response, 'body') ? $response->body() : ''));
+                }
+            }
+        });
+
+        return $detalhes;
+    }
+
+    // ----- Compras -----
+    private function listarTodasComprasSemFiltro($token) {
         $endpoint = 'https://api.gesfaturacao.pt/api/v1.0.4/purchases/invoices';
         $todasCompras = [];
         $page = 1;
-
         do {
             $response = Http::withHeaders([
                 'Authorization' => $token,
                 'Accept' => 'application/json',
-            ])->get($endpoint, [
-                'page' => $page,
-            ]);
-
+            ])->get($endpoint, ['page' => $page]);
             if (!$response->successful()) {
                 \Log::error('Erro na API Compras: ' . $response->body());
                 return false;
             }
-
             $data = $response->json();
             $compras = $data['data'] ?? [];
             $todasCompras = array_merge($todasCompras, $compras);
-
             $lastPage = $data['pagination']['lastPage'] ?? 1;
             $page++;
         } while ($page <= $lastPage);
-
         return collect($todasCompras);
     }
 
-
-    private function calculaFaturacaoDia(Collection $faturasValidas, $dia = null, $mes = null, $ano = null): float
-    {
-        $ano = $ano ?? date('Y');
-        $mes = $mes ?? date('m');
-        $dia = $dia ?? date('d');
-
-        $dateStr = sprintf('%04d-%02d-%02d', $ano, $mes, $dia);
-
-        return $faturasValidas->filter(fn($fatura) => substr($fatura['date'], 0, 10) === $dateStr)
-                             ->sum(fn($fatura) => floatval($fatura['total'] ?? 0));
-    }
-
-    private function calculaFaturacaoMes(Collection $faturasValidas, $mes = null, $ano = null): float
-    {
+    private function calculaComprasMes(Collection $comprasValidas, $mes = null, $ano = null): float {
         $ano = $ano ?? date('Y');
         $mes = $mes ?? date('m');
         $prefixoData = sprintf('%04d-%02d', $ano, $mes);
-
-        return $faturasValidas->filter(fn($fatura) => substr($fatura['date'], 0, 7) === $prefixoData)
-                             ->sum(fn($fatura) => floatval($fatura['total'] ?? 0));
+        return $comprasValidas->filter(fn($compra) => substr($compra['date'], 0, 7) === $prefixoData)
+            ->sum(fn($compra) => floatval($compra['total'] ?? 0));
     }
 
-    private function calculaFaturacaoAno(Collection $faturasValidas, $ano = null): float
+    // ----- Produtos -----
+    private function buscarProdutoPorId($id, $token)
     {
-        $ano = $ano ?? date('Y');
-        $prefixoData = sprintf('%04d', $ano);
+        $response = Http::withHeaders([
+            'Authorization' => $token,
+            'Accept' => 'application/json',
+        ])->get("https://api.gesfaturacao.pt/api/v1.0.4/products/{$id}");
 
-        return $faturasValidas->filter(fn($fatura) => substr($fatura['date'], 0, 4) === $prefixoData)
-                             ->sum(fn($fatura) => floatval($fatura['total'] ?? 0));
+        if ($response->successful()) {
+            return $response->json('data');
+        }
+        return [];
     }
 
-    private function calcularPercentualRelativo(float $atual, float $anterior): array
+    private function categoriasProdutos($token, Collection $faturasDetalhadas)
     {
-        if ($anterior == 0 || $atual == 0) {
-            return ['percent' => '0,00%', 'seta' => '→', 'positivo' => true];
+        $totalCategoriasVenda = [];
+        $totalCategoriaMontante = [];
+        $categoriasPorDia = [];
+        $valoresPorDia = [];
+        $artigosCache = [];
+
+        Log::info('INÍCIO - categoriasProdutos | total de faturas detalhadas: ' . $faturasDetalhadas->count());
+
+        foreach ($faturasDetalhadas as $faturaIndex => $fatura) {
+            $dataFatura = substr($fatura['date'] ?? '', 0, 10); // YYYY-MM-DD
+            Log::debug("Fatura #{$faturaIndex} | number: " . ($fatura['number'] ?? 'SEM_NÚMERO') . " | Date: {$dataFatura}");
+
+            foreach ($fatura['lines'] ?? [] as $lineIndex => $line) {
+                $idArtigo = $line['article']['id'] ?? null;
+                $quantidade = floatval($line['quantity'] ?? 0);
+                $valorLinha = floatval($line['total'] ?? 0);
+
+                if ($idArtigo) {
+                    if (!isset($artigosCache[$idArtigo])) {
+                        $produto = $this->buscarProdutoPorId($idArtigo, $token);
+                        $artigosCache[$idArtigo] = $produto;
+                        Log::info(" produto API id={$idArtigo} => " . json_encode($produto));
+                    } else {
+                        $produto = $artigosCache[$idArtigo];
+                    }
+                    $categoria = $produto['category']['name'] ?? 'Desconhecido';
+                } else {
+                    $categoria = 'Outros';
+                }
+
+                Log::debug(" Linha #{$lineIndex}: ID artigo={$idArtigo}, categoria={$categoria}, quantidade={$quantidade}, valorLinha={$valorLinha}");
+
+                // Total geral por categoria
+                $totalCategoriasVenda[$categoria] = ($totalCategoriasVenda[$categoria] ?? 0) + $quantidade;
+                $totalCategoriaMontante[$categoria] = ($totalCategoriaMontante[$categoria] ?? 0) + $valorLinha;
+
+                // Dados por dia e categoria - para chart stacked columns
+                $categoriasPorDia[$dataFatura][$categoria] = ($categoriasPorDia[$dataFatura][$categoria] ?? 0) + $quantidade;
+                $valoresPorDia[$dataFatura][$categoria] = ($valoresPorDia[$dataFatura][$categoria] ?? 0) + $valorLinha;
+            }
         }
 
-        $diff = $atual - $anterior;
-        $percent = ($diff / abs($anterior)) * 100;
-        $positivo = $percent >= 0;
+        Log::info("RESUMO dinheiro por categoria total: " . json_encode($totalCategoriaMontante));
+        Log::info("RESUMO quantidade por categoria total: " . json_encode($totalCategoriasVenda));
+        Log::info("RESUMO quantidade por categoria por dia: " . json_encode($categoriasPorDia));
 
-        $seta = $positivo ? '↑' : '↓';
-        $percentFormatado = number_format($percent, 2, ',', '.') . '%';
-
-        return ['percent' => $percentFormatado, 'seta' => $seta, 'positivo' => $positivo];
+        return [
+            'quantidades' => $totalCategoriasVenda,
+            'valores' => $totalCategoriaMontante,
+            'quantidadesPorDia' => $categoriasPorDia,
+            'valoresPorDia' => $valoresPorDia,
+        ];
     }
-
-    private function calculaComprasMes(Collection $comprasValidas, $mes = null, $ano = null): float
-    {
-        $ano = $ano ?? date('Y');
-        $mes = $mes ?? date('m');
-        $prefixoData = sprintf('%04d-%02d', $ano, $mes);
-
-        return $comprasValidas->filter(fn($compra) => substr($compra['date'], 0, 7) === $prefixoData)
-                            ->sum(fn($compra) => floatval($compra['total'] ?? 0));
-    }
-
 }
