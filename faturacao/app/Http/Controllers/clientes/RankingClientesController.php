@@ -11,19 +11,18 @@ class RankingClientesController extends Controller
 {
     private function clientes($inicio = null, $fim = null)
     {
-        if (!session()->has('user.token')) {
-            return null;
+        $token = session('user.token');
+        if (!$token) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login novamente.']);
         }
 
-        $token = session('user.token');
+        $validacao = $this->validateToken($token);
+
         $response = Http::withHeaders([
             'Authorization' => $token,
             'Accept' => 'application/json',
         ])->get('https://api.gesfaturacao.pt/api/v1.0.4/sales/invoices');
 
-        if (!$response->successful()) {
-            return null;
-        }
 
         $invoices = $response->json();
         $data = $invoices['data'] ?? $invoices;
@@ -61,6 +60,14 @@ class RankingClientesController extends Controller
             $ranking[$clientId]['num_vendas'] += 1;
         }
         return collect($ranking);
+    }
+
+    private function validateToken($token) {
+        $response = Http::withHeaders([
+            'Authorization' => $token,
+            'Accept' => 'application/json',
+        ])->post('https://api.gesfaturacao.pt/api/v1.0.4/validate-token', []);
+        return $response->json();
     }
 
     public function topClientes(Request $request)

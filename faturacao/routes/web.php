@@ -12,8 +12,8 @@ use App\Http\Controllers\fornecedores\RankingFornecedoresController;
 
 use App\Http\Controllers\produtos\ListaProdutosController;
 use App\Http\Controllers\produtos\RankingProdutosController;
-use App\Http\Controllers\produtos\AbaixoStockProdutosController;
-use App\Http\Controllers\produtos\RankingLucroProdutosController;
+use App\Http\Controllers\produtos\StockProdutosController;
+use App\Http\Controllers\produtos\LucroProdutosController;
 
 use App\Http\Controllers\relatorios\DiarioVendasController;
 use App\Http\Controllers\relatorios\PagamentosController;
@@ -56,14 +56,14 @@ Route::get('/fornecedores/top5', [RankingFornecedoresController::class, 'topForn
 Route::get('/produtos', [ListaProdutosController::class, 'lista'])
     -> name('produtos.lista');
 
-Route::get('/produtos/ranking', [RankingProdutosController::class, 'index'])
+Route::get('/produtos/ranking', [RankingProdutosController::class, 'topProdutos'])
      ->name('produtos.ranking');
 
-Route::get('/produtos/abaixo-stock', [AbaixoStockProdutosController::class, 'index'])
-     ->name('produtos.abaixoStock');
+Route::get('/produtos/stock', [StockProdutosController::class, 'index'])
+     ->name('produtos.stock');
 
-Route::get('/produtos/ranking-lucro', [RankingLucroProdutosController::class, 'index'])
-    ->name('produtos.rankingLucro');
+Route::get('/produtos/lucro', [LucroProdutosController::class, 'index'])
+    ->name('produtos.lucro');
 
 //Relatorios
 Route::get('/relatorios/diario', [DiarioVendasController::class, 'index'])
