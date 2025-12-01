@@ -66,7 +66,7 @@ class PagamentosController extends Controller
         switch ($periodo) {
             case 'semana':
                 $inicio = $inicioSemanaAtual;
-                $fim = $fimSemanaAtual;
+                $fim = $hoje;
                 $periodoTexto = "Semana atual: $inicio a $fim";
                 break;
             case 'ultima_semana':

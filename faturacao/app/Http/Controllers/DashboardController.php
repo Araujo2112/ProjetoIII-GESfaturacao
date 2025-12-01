@@ -345,11 +345,8 @@ class DashboardController extends Controller
         $valoresPorDia = [];
         $artigosCache = [];
 
-        Log::info('INÍCIO - categoriasProdutos | total de faturas detalhadas: ' . $faturasDetalhadas->count());
-
         foreach ($faturasDetalhadas as $faturaIndex => $fatura) {
-            $dataFatura = substr($fatura['date'] ?? '', 0, 10); // YYYY-MM-DD
-            Log::debug("Fatura #{$faturaIndex} | number: " . ($fatura['number'] ?? 'SEM_NÚMERO') . " | Date: {$dataFatura}");
+            $dataFatura = substr($fatura['date'] ?? '', 0, 10);
 
             foreach ($fatura['lines'] ?? [] as $lineIndex => $line) {
                 $idArtigo = $line['article']['id'] ?? null;
@@ -360,7 +357,6 @@ class DashboardController extends Controller
                     if (!isset($artigosCache[$idArtigo])) {
                         $produto = $this->buscarProdutoPorId($idArtigo, $token);
                         $artigosCache[$idArtigo] = $produto;
-                        Log::info(" produto API id={$idArtigo} => " . json_encode($produto));
                     } else {
                         $produto = $artigosCache[$idArtigo];
                     }
@@ -369,21 +365,14 @@ class DashboardController extends Controller
                     $categoria = 'Outros';
                 }
 
-                Log::debug(" Linha #{$lineIndex}: ID artigo={$idArtigo}, categoria={$categoria}, quantidade={$quantidade}, valorLinha={$valorLinha}");
 
-                // Total geral por categoria
                 $totalCategoriasVenda[$categoria] = ($totalCategoriasVenda[$categoria] ?? 0) + $quantidade;
                 $totalCategoriaMontante[$categoria] = ($totalCategoriaMontante[$categoria] ?? 0) + $valorLinha;
 
-                // Dados por dia e categoria - para chart stacked columns
                 $categoriasPorDia[$dataFatura][$categoria] = ($categoriasPorDia[$dataFatura][$categoria] ?? 0) + $quantidade;
                 $valoresPorDia[$dataFatura][$categoria] = ($valoresPorDia[$dataFatura][$categoria] ?? 0) + $valorLinha;
             }
         }
-
-        Log::info("RESUMO dinheiro por categoria total: " . json_encode($totalCategoriaMontante));
-        Log::info("RESUMO quantidade por categoria total: " . json_encode($totalCategoriasVenda));
-        Log::info("RESUMO quantidade por categoria por dia: " . json_encode($categoriasPorDia));
 
         return [
             'quantidades' => $totalCategoriasVenda,

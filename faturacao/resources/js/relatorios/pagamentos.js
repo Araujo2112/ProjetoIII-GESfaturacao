@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderEvolucaoChart() {
         const quantidadePorDia = window.pagamentosQuantidadePorDia || {};
         const datasFormatadas = window.pagamentosDatas || [];
+        const name = 'Quantidade de Pagamentos';
 
         const data = datasFormatadas.map(dataFmt => {
             const dataYMD = converterDataFmtParaYMD(dataFmt);
@@ -36,11 +37,26 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         const options = {
-            chart: { type: 'line', height: 350, toolbar: { show: true } },
-            dataLabels: { enabled: false },
-            series: [{ name: 'Quantidade de Pagamentos', data }],
-            xaxis: { categories: datasFormatadas },
-            colors: ['#2980FF'],
+            chart: {
+                type: 'line',
+                height: 350,
+                toolbar: {
+                    show: true
+                }
+            },
+            dataLabels: {
+                enabled: false
+            },
+            series: [{ 
+                name,
+                data
+            }],
+            xaxis: {
+                categories: datasFormatadas
+            },
+            colors: [
+                '#2980FF'
+            ]
         };
 
         if (evolucaoChart) evolucaoChart.destroy();

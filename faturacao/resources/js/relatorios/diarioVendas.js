@@ -25,7 +25,14 @@ document.addEventListener('DOMContentLoaded', function () {
             chart: {
                 type: 'line',
                 height: 350,
-                toolbar: { show: true }
+                toolbar: { 
+                    show: true 
+                },
+                zoom: {
+                    enabled: true,
+                    type: 'x',
+                    autoScaleYaxis: true
+                }
             },
             dataLabels: { 
                 enabled: false 

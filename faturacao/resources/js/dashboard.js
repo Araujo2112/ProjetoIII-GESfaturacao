@@ -1,11 +1,11 @@
 document.addEventListener('DOMContentLoaded', function () {
     console.log('Categorias Pie:', window.dashboardCategorias);
 
+    // Line chart
     if (window.dashboardData) {
-        // Area chart
         const areaOptions = {
             chart: {
-                type: 'area',
+                type: 'line',
                 height: 300,
                 toolbar: {
                     show: true,
@@ -45,15 +45,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             },
             colors: ['#2980FF'],
-            fill: {
-                type: 'gradient',
-                gradient: {
-                    shadeIntensity: 1,
-                    opacityFrom: 0.4,
-                    opacityTo: 0.8,
-                    stops: [0, 100]
-                }
-            },
             grid: {
                 borderColor: "#e4e7ed"
             }
@@ -171,7 +162,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
             },
-            colors: ['#E67E22', '#D35400'],
+            colors: ['#f1811fff', '#da0f0fff'],
             plotOptions: {
             bar: {
                     columnWidth: '50%'
@@ -212,6 +203,22 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             series: categoriasOrdenadas.map(cat => valoresCategorias[cat]),
             labels: categoriasOrdenadas,
+            colors: ['#2980FF',
+                    '#FF6B00',
+                    '#FFCC00',
+                    '#00C853',
+                    '#10f1d3ff',
+                    '#D500F9',
+                    '#FF1744',
+                    '#FF4081',
+                    '#8D6E63',
+                    '#455A64',
+                    '#F5F5F5',
+                    '#263238',
+                    '#FFD180',
+                    '#B3E5FC',
+                    '#C8E6C9'
+            ],
             legend: {
                 position: 'top',
                 horizontalAlign: 'center',
@@ -281,6 +288,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 shared: true,
                 intersect: false
             },
+                        colors: ['#2980FF',
+                    '#FF6B00',
+                    '#FFCC00',
+                    '#00C853',
+                    '#10f1d3ff',
+                    '#D500F9',
+                    '#FF1744',
+                    '#FF4081',
+                    '#8D6E63',
+                    '#455A64',
+                    '#F5F5F5',
+                    '#263238',
+                    '#FFD180',
+                    '#B3E5FC',
+                    '#C8E6C9'
+            ],
             legend: {
                 position: 'top',
                 horizontalAlign: 'center',
