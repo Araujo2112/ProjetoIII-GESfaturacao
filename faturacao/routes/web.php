@@ -56,7 +56,7 @@ Route::get('/fornecedores/top5', [RankingFornecedoresController::class, 'topForn
 Route::get('/produtos', [ListaProdutosController::class, 'lista'])
     -> name('produtos.lista');
 
-Route::get('/produtos/ranking', [RankingProdutosController::class, 'topProdutos'])
+Route::get('/produtos/ranking', [RankingProdutosController::class, 'index'])
      ->name('produtos.ranking');
 
 Route::get('/produtos/stock', [StockProdutosController::class, 'index'])

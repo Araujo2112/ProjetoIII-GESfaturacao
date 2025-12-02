@@ -6,10 +6,11 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 class RankingProdutosController extends Controller
 {
-    public function topProdutos(Request $request)
+    public function index(Request $request)
     {
         $token = session('user.token');
         if (!$token) {
@@ -22,124 +23,244 @@ class RankingProdutosController extends Controller
         }
 
         [$inicio, $fim, $periodoTexto, $periodo] = $this->definirPeriodo($request);
-        $produtos = $this->fetchProdutos();
 
-        if (!$produtos) {
-            return view('produtos.topProdutos', ['periodoTexto' => $periodoTexto]);
+        $faturasValidas = $this->buscarFaturasValidas($token, $inicio, $fim);
+        if (!$faturasValidas || $faturasValidas->isEmpty()) {
+            return view('produtos.topProdutos', [
+                'produtos' => [],
+                'periodoTexto' => $periodoTexto,
+                'graficoDados' => ['nomes' => [], 'qtds' => []],
+            ]);
         }
 
-        $todosProdutos = $this->formatarProdutos($produtos);
+        // Buscar detalhes (com lines)
+        $faturasDetalhadas = $this->buscarDetalhesFaturas($token, $faturasValidas);
+        if ($faturasDetalhadas->isEmpty()) {
+            return view('produtos.topProdutos', [
+                'produtos' => [],
+                'periodoTexto' => $periodoTexto,
+                'graficoDados' => ['nomes' => [], 'qtds' => []],
+            ]);
+        }
+
+        // 1) Somar quantidades por ID de artigo
+        $qtdPorProduto = $this->calcularQtdPorProduto($faturasDetalhadas);
+
+        if (empty($qtdPorProduto)) {
+            return view('produtos.topProdutos', [
+                'produtos' => [],
+                'periodoTexto' => $periodoTexto,
+                'graficoDados' => ['nomes' => [], 'qtds' => []],
+            ]);
+        }
+
+        // 2) Obter top 5 IDs (ordenados por quantidade desc)
+        arsort($qtdPorProduto); // mantém chaves, ordena por valor desc
+        $top5Ids = array_slice(array_keys($qtdPorProduto), 0, 5);
+
+        // 3) Buscar detalhes de produto só para o top 5
+        $topProdutos = [];
+        foreach ($top5Ids as $prodId) {
+            $produtoData = $this->fetchProdutosID($prodId, $token);
+            if (!empty($produtoData)) {
+                $topProdutos[] = [
+                    'cod' => $produtoData['code'] ?? '',
+                    'nome' => $produtoData['description'] ?? '',
+                    'categoria' => $produtoData['category']['name'] ?? 'Sem Categoria',
+                    'qtd' => $qtdPorProduto[$prodId] ?? 0,
+                    'preco_c_iva' => (float) ($produtoData['pricePvp'] ?? 0),
+                ];
+            }
+        }
+
+        // Garantir ordenação final por quantidade (caso algum falhe)
+        usort($topProdutos, fn($a, $b) => $b['qtd'] <=> $a['qtd']);
 
         return view('produtos.topProdutos', [
-            'top5ProdutosQtd' => collect($todosProdutos)->sortByDesc('qtd')->take(5)->values(),
-            'top5ProdutosQtdBaixo' => collect($todosProdutos)->sortBy('qtd')->take(5)->values(),
-            'top5ProdutosLucro' => collect($todosProdutos)->sortByDesc('lucro')->take(5)->values(),
-            'produtosStockBaixo' => collect($todosProdutos)
-                ->where(fn($p) => $p['stock_atual'] < $p['stock_minimo'])
-                ->take(5)
-                ->values(),
+            'produtos' => $topProdutos,
             'periodoTexto' => $periodoTexto,
+            'graficoDados' => [
+                'nomes' => array_column($topProdutos, 'nome'),
+                'qtds' => array_column($topProdutos, 'qtd'),
+            ]
         ]);
     }
 
-    private function definirPeriodo(Request $request): array
+    private function definirPeriodo(Request $request)
     {
         $hoje = Carbon::today()->format('Y-m-d');
-        $ontem = Carbon::yesterday()->format('Y-m-d');
+        $inicioSemanaAtual = Carbon::now()->startOfWeek()->format('Y-m-d');
+        $fimSemanaAtual = Carbon::now()->endOfWeek()->format('Y-m-d');
+        $inicioSemanaPassada = Carbon::now()->subWeek()->startOfWeek()->format('Y-m-d');
+        $fimSemanaPassada = Carbon::now()->subWeek()->endOfWeek()->format('Y-m-d');
         $primeiroDoMes = Carbon::now()->startOfMonth()->format('Y-m-d');
         $ultimoMesInicio = Carbon::now()->subMonth()->startOfMonth()->format('Y-m-d');
         $ultimoMesFim = Carbon::now()->subMonth()->endOfMonth()->format('Y-m-d');
-        $primeiroDoAno = Carbon::now()->startOfYear()->format('Y-m-d');
-        $ultimoAnoInicio = Carbon::now()->subYear()->startOfYear()->format('Y-m-d');
-        $ultimoAnoFim = Carbon::now()->subYear()->endOfYear()->format('Y-m-d');
 
-        $periodo = $request->input('periodo', 'geral');
+        $periodo = $request->input('periodo', 'semana');
         $inicio = null;
         $fim = null;
         $periodoTexto = '';
 
         switch ($periodo) {
-            case 'geral':
-                $inicio = null;
-                $fim = null;
-                $periodoTexto = 'Todos os dados disponíveis';
-                break;
-            case 'hoje':
-                $inicio = $hoje;
+            case 'semana':
+                $inicio = $inicioSemanaAtual;
                 $fim = $hoje;
-                $periodoTexto = "Hoje: $hoje";
+                $periodoTexto = "Semana atual: $inicio a $fim";
                 break;
-            case 'ontem':
-                $inicio = $ontem;
-                $fim = $ontem;
-                $periodoTexto = "Ontem: $ontem";
+            case 'ultima_semana':
+                $inicio = $inicioSemanaPassada;
+                $fim = $fimSemanaPassada;
+                $periodoTexto = "Semana anterior: $inicio a $fim";
                 break;
             case 'mes':
                 $inicio = $primeiroDoMes;
                 $fim = $hoje;
-                $periodoTexto = "Mês atual: $primeiroDoMes a $hoje";
+                $periodoTexto = "Mês atual: $inicio a $fim";
                 break;
             case 'ultimo_mes':
                 $inicio = $ultimoMesInicio;
                 $fim = $ultimoMesFim;
-                $periodoTexto = "Mês anterior: $ultimoMesInicio a $ultimoMesFim";
-                break;
-            case 'ano':
-                $inicio = $primeiroDoAno;
-                $fim = $hoje;
-                $periodoTexto = "Ano atual: $primeiroDoAno a $hoje";
-                break;
-            case 'ultimo_ano':
-                $inicio = $ultimoAnoInicio;
-                $fim = $ultimoAnoFim;
-                $periodoTexto = "Ano anterior: $ultimoAnoInicio a $ultimoAnoFim";
+                $periodoTexto = "Mês anterior: $inicio a $fim";
                 break;
             case 'personalizado':
                 $inicio = $request->input('data_inicio');
                 $fim = $request->input('data_fim');
                 $periodoTexto = "Personalizado: $inicio a $fim";
                 break;
-            default:
-                $inicio = null;
-                $fim = null;
-                $periodoTexto = 'Todos os dados disponíveis';
-                break;
         }
 
         return [$inicio, $fim, $periodoTexto, $periodo];
     }
 
-    private function fetchProdutos(): array
+    private function listarTodasFaturasSemFiltro(string $token): Collection|bool
     {
-        $token = session('user.token');
+        $endpoints = [
+            'https://api.gesfaturacao.pt/api/v1.0.4/sales/invoices',
+            'https://api.gesfaturacao.pt/api/v1.0.4/sales/simplified-invoices',
+            'https://api.gesfaturacao.pt/api/v1.0.4/sales/receipt-invoices',
+        ];
+
+        $todasFaturas = [];
+
+        foreach ($endpoints as $endpoint) {
+            $response = Http::withHeaders([
+                'Authorization' => $token,
+                'Accept' => 'application/json',
+            ])->get($endpoint);
+
+            if (!$response->successful()) {
+                return false;
+            }
+
+            $data = $response->json();
+            $faturas = $data['data'] ?? [];
+            $todasFaturas = array_merge($todasFaturas, $faturas);
+        }
+
+        return collect($todasFaturas);
+    }
+
+    private function buscarFaturasValidas(string $token, string $inicio, string $fim): Collection|bool
+    {
+        $faturas = $this->listarTodasFaturasSemFiltro($token);
+        if ($faturas === false) {
+            return false;
+        }
+
+        return $faturas->filter(function ($fatura) use ($inicio, $fim) {
+            $statusId = $fatura['status']['id'] ?? 0;
+            if ($statusId == 5 || $statusId == 0) {
+                return false;
+            }
+            $dataFatura = substr($fatura['date'], 0, 10);
+            return $dataFatura >= $inicio && $dataFatura <= $fim;
+        });
+    }
+
+    private function buscarDetalhesFaturas(string $token, Collection $faturasValidas): Collection
+    {
+        $detalhes = collect();
+        $batchSize = 50;
+
+        $faturasValidas->chunk($batchSize)->each(function ($lote) use ($token, &$detalhes) {
+            $responses = Http::pool(function ($pool) use ($lote, $token) {
+                foreach ($lote as $fatura) {
+                    $id = $fatura['id'];
+                    $number = $fatura['number'] ?? '';
+                    $prefix = strtoupper(substr($number, 0, 2));
+
+                    $tipo = match ($prefix) {
+                        'FT' => 'invoices',
+                        'FS' => 'simplified-invoices',
+                        'FR' => 'receipt-invoices',
+                        default => null,
+                    };
+
+                    if ($tipo) {
+                        $url = "https://api.gesfaturacao.pt/api/v1.0.4/sales/{$tipo}/{$id}";
+                        $pool->withHeaders([
+                            'Authorization' => $token,
+                            'Accept' => 'application/json',
+                        ])->get($url);
+                    }
+                }
+            });
+
+            foreach ($responses as $response) {
+                if ($response instanceof \Illuminate\Http\Client\Response && $response->successful()) {
+                    $detalhes->push($response->json('data'));
+                } elseif ($response instanceof \Exception) {
+                    \Log::error('Erro na requisição: Exceção - ' . $response->getMessage());
+                } else {
+                    \Log::error('Erro na requisição: ' . (method_exists($response, 'status') ? $response->status() : 'Desconhecido') . ' - ' . (method_exists($response, 'body') ? $response->body() : ''));
+                }
+            }
+        });
+
+        return $detalhes;
+    }
+
+    // SOMA quantidade por article.id
+    private function calcularQtdPorProduto(Collection $faturasDetalhadas): array
+    {
+        $qtdPorProduto = [];
+
+        foreach ($faturasDetalhadas as $fatura) {
+            foreach ($fatura['lines'] ?? [] as $linha) {
+                $artigoId = $linha['article']['id'] ?? null;
+                if (!$artigoId) {
+                    continue;
+                }
+
+                $quantidade = (float) ($linha['quantity'] ?? 0);
+
+                if (!isset($qtdPorProduto[$artigoId])) {
+                    $qtdPorProduto[$artigoId] = 0;
+                }
+
+                $qtdPorProduto[$artigoId] += $quantidade;
+            }
+        }
+
+        return $qtdPorProduto;
+    }
+
+    // NOVO: busca produto por ID
+    private function fetchProdutosID($id, $token)
+    {
         $response = Http::withHeaders([
             'Authorization' => $token,
             'Accept' => 'application/json',
-        ])->get('https://api.gesfaturacao.pt/api/v1.0.4/products');
+        ])->get("https://api.gesfaturacao.pt/api/v1.0.4/products/{$id}");
 
-        return $response->json()['data'] ?? [];
+        if ($response->successful()) {
+            return $response->json('data');
+        }
+        return [];
     }
 
-    private function formatarProdutos(array $produtos): array
-    {
-        return array_map(function($produto) {
-            return [
-                'id' => $produto['id'] ?? '',
-                'cod' => $produto['code'] ?? '',
-                'nome' => $produto['description'] ?? '',
-                'categoria' => $produto['category']['name'] ?? 'Sem Categoria',
-                'preco_c_iva' => (float) ($produto['pricePvp'] ?? 0),
-                'preco_s_iva' => (float) ($produto['price'] ?? 0),
-                'custo' => (float) ($produto['initialPrice'] ?? 0),
-                'qtd' => 0,
-                'lucro' => (float) ($produto['price'] ?? 0) - (float) ($produto['initialPrice'] ?? 0),
-                'stock_atual' => (float) ($produto['stock'] ?? 0),
-                'stock_minimo' => (float) ($produto['minStock'] ?? 0),
-            ];
-        }, $produtos);
-    }
-
-    private function validateToken($token): bool
+    private function validateToken($token)
     {
         $response = Http::withHeaders([
             'Authorization' => $token,
