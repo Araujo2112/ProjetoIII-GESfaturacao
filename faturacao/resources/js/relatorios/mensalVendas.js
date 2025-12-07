@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const isVendas = type === 'vendas';
 
         const data  = isVendas ? window.vendasValores : window.lucroValores;
-        const nomes = isVendas ? window.vendasDatas   : window.lucroDatas;
+        const nomes = isVendas ? window.vendasMeses   : window.lucroMeses;
         const name  = isVendas ? 'Vendas c/ IVA (€)'  : 'Lucro (€)';
 
         const yFormatter = value =>

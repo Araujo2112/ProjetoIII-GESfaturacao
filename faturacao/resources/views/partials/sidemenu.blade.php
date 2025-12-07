@@ -36,13 +36,13 @@
                 <button type="button"
                         class="btn btn-dark nav-link text-white w-100 dropdown-toggle d-flex justify-content-between align-items-center text-start"
                         data-bs-toggle="dropdown" aria-expanded="false">
-                    Produtos
+                    Artigos
                 </button>
                 <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="{{ route('produtos.lista') }}">Catálogo</a></li>
-                    <li><a class="dropdown-item" href="{{ route('produtos.ranking') }}">Rankings</a></li>
-                    <li><a class="dropdown-item" href="{{ route('produtos.abaixoStock') }}">Abaixo do Stock</a></li>
-                    <li><a class="dropdown-item" href="{{ route('produtos.rankingLucro') }}">Top % Lucro</a></li>
+                    <li><a class="dropdown-item" href="{{ route('artigos.lista') }}">Catálogo</a></li>
+                    <li><a class="dropdown-item" href="{{ route('artigos.ranking') }}">Top Vendas</a></li>
+                    <li><a class="dropdown-item" href="{{ route('artigos.stock') }}">Abaixo do Stock</a></li>
+                    <li><a class="dropdown-item" href="{{ route('artigos.lucro') }}">Top % Lucro</a></li>
                 </ul>
             </div>
 
@@ -77,12 +77,12 @@
                     Relatórios
                 </button>
                 <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="{{ route('relatorios.vencimento') }}">Vencimentos</a></li>
                     <li><a class="dropdown-item" href="#">Por Hora</a></li>
                     <li><a class="dropdown-item" href="{{ route('relatorios.diario') }}">Diário</a></li>
-                    <li><a class="dropdown-item" href="{{ route('relatorios.pagamentos') }}">Pagamentos</a></li>
+                    <li><a class="dropdown-item" href="{{ route('relatorios.pagamento') }}">Pagamentos</a></li>
                     <li><a class="dropdown-item" href="#">Dias da semana</a></li>
-                    <li><a class="dropdown-item" href="#">Semanal</a></li>
-                    <li><a class="dropdown-item" href="#">Mensal</a></li>
+                    <li><a class="dropdown-item" href="{{ route('relatorios.mensal') }}">Mensal</a></li>
                 </ul>
             </div>
 

@@ -169,7 +169,6 @@ class DashboardController extends Controller
         ]);
     }
 
-    // Métodos GENÉRICOS e ESPECÍFICOS
     private function validateToken($token) {
         $response = Http::withHeaders([
             'Authorization' => $token,
@@ -179,14 +178,16 @@ class DashboardController extends Controller
     }
 
     private function filtrarPorStatus(Collection $items) {
-        return $items->filter(fn($item) => !in_array($item['status']['id'] ?? 0, [0, 5]));
+        return $items->filter(fn($item) => ($item['statusId'] ?? 0) != 2);
     }
 
     private function filtrarPorStatusEData(Collection $items, $inicio, $fim) {
         return $items->filter(function ($item) use ($inicio, $fim) {
             $statusId = $item['status']['id'] ?? 0;
-            if ($statusId == 5 || $statusId == 0) return false;
+            if ($statusId != 2) 
+                return false;
             $dataItem = substr($item['date'], 0, 10);
+
             return $dataItem >= $inicio && $dataItem <= $fim;
         });
     }

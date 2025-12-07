@@ -1,11 +1,11 @@
 @extends('layout')
 
-@section('title', 'Relatório - Pagamentos')
+@section('title', 'Top 5 Artigos')
 
 @section('content')
     <div class="bg-dark-subtle d-flex justify-content-center align-items-start min-vh-100 pt-5">
         <div class="bg-white rounded shadow p-4 mx-auto" style="width:100%; max-width:1400px; min-height:380px;">
-            <h1 class="text-dark text-center">Relatório - Pagamentos</h1>
+            <h1 class="text-dark text-center">Top 5 Artigos</h1>
 
             {{-- Filtro --}}
             <form method="GET" class="d-flex align-items-center mb-4" style="gap:1rem;" id="filtroForm">
@@ -25,9 +25,8 @@
                 <button type="submit" class="btn btn-primary" style="width:auto; max-width:150px; white-space:nowrap;">Aplicar Filtro</button>
             </form>
 
-
             {{-- Gráfico/Tabela --}}
-            @if($pagamentos->isEmpty())
+            @if(empty($produtos) || count($produtos) == 0)
                 <div class="text-center py-5">
                     <h4 class="fw-semibold mt-4 mb-2">Sem dados de vendas para o período selecionado</h4>
                     <div class="text-muted">
@@ -35,69 +34,59 @@
                     </div>
                 </div>
             @else
-
                 <div class="row mt-5">
                     <div class="bg-light px-3 py-2 rounded border d-flex align-items-center justify-content-between">
                         <div>
                             <i class="far fa-calendar-alt me-2"></i>
-                            {{ $periodoTexto ?? 'Mês atual' }}
+                            {{ $periodoTexto ?? 'Semana atual' }}
                         </div>
                         <div class="btn-group" role="group" aria-label="Botões gráfico">
-                            <button id="btnEvolucao" class="btn btn-outline-primary active">Evolução</button>
-                            <button id="btnTop" class="btn btn-outline-primary">Top</button>
+                            <button type="button" id="btnMais" class="btn btn-outline-primary">+ Vendidos</button>
+                            <button type="button" id="btnMenos" class="btn btn-outline-primary">- Vendidos</button>
                         </div>
                     </div>
                     <div class="col-12">
-                        <div id="evolucaoChart"></div>
-                        <div id="topChart"></div>
+                        <div id="maisVendidosChart" style="height: 350px;"></div>
                     </div>
                 </div>
 
                 <div class="row d-flex align-items-stretch mt-4">
                     <div style="overflow-x:auto;">
-
                         <table class="table table-sm table-striped table-bordered table-hover">
                             <thead>
                                 <tr>
-                                    <th>Data</th>
-                                    <th>Número Recibo</th>
-                                    <th>Tipo de Pagamento</th>
-                                    <th>Preço c/IVA</th>
-                                    <th>Preço s/IVA</th>
+                                    <th>#</th>
+                                    <th>Cód.</th>
+                                    <th>Nome</th>
+                                    <th>Categoria</th>
+                                    <th class="text-end">Qtd Vendida</th>
+                                    <th class="text-end">Preço c/IVA (€)</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($pagamentos as $dados)
+                                @foreach ($produtos as $index => $produto)
                                     <tr>
-                                        <td>{{ \Carbon\Carbon::parse($dados['data'])->format('d/m/Y') }}</td>
-                                        <td>{{ $dados['numero_recibo'] }}</td>
-                                        <td>{{ $dados['metodo_pagamento'] }}</td>
-                                        <td>€ {{ number_format($dados['preco_com_iva'], 2, ',', '.') }}</td>
-                                        <td>€ {{ number_format($dados['preco_sem_iva'], 2, ',', '.') }}</td>
+                                        <td>{{ $index + 1 }}</td>
+                                        <td>{{ $produto['cod'] }}</td>
+                                        <td>{{ $produto['nome'] }}</td>
+                                        <td>{{ $produto['categoria'] }}</td>
+                                        <td class="text-end fw-semibold">{{ number_format($produto['qtd'], 0) }}</td>
+                                        <td class="text-end">{{ number_format($produto['preco_c_iva'], 2) }}</td>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="text-center">Sem dados para o período selecionado</td>
-                                    </tr>
-                                @endforelse
+                                @endforeach
                             </tbody>
                         </table>
-
                     </div>
                 </div>
             @endif
-
         </div>
     </div>
 
     <script>
-        window.pagamentosDatas = @json($datasFormatadas);
-        window.pagamentosQuantidadePorDia = @json($contagemPagamentosPorDia);
-        window.contagemMetodosPagamento = @json($contagemMetodosPagamento);
+        window.maisVendidosData = @json($graficoDados);
     </script>
-
 @endsection
 
 @push('scripts')
-    @vite(['resources/js/relatorios/pagamentos.js'])
+    @vite(['resources/js/produtos/topProdutos.js'])
 @endpush

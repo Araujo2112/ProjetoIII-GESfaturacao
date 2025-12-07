@@ -1,11 +1,11 @@
 @extends('layout')
 
-@section('title', 'Lista de Produtos')
+@section('title', 'Catálogo de Produtos')
 
 @section('content')
 <div class="bg-dark-subtle d-flex justify-content-center align-items-start min-vh-100 pt-5">
     <div class="bg-white rounded shadow p-4 mx-auto" style="width:100%; max-width:1400px; min-height:380px;">
-            <h1 class="text-dark text-center">Lista de Produtos</h1>
+            <h1 class="text-dark text-center">Catálogo de Artigos</h1>
             
             <div class="d-flex justify-content-between align-items-center mb-3 gap-3" style="width:100%">
                 <form method="GET" class="mb-3 d-flex align-items-center gap-2">

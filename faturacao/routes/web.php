@@ -12,11 +12,13 @@ use App\Http\Controllers\fornecedores\RankingFornecedoresController;
 
 use App\Http\Controllers\produtos\ListaProdutosController;
 use App\Http\Controllers\produtos\RankingProdutosController;
-use App\Http\Controllers\produtos\AbaixoStockProdutosController;
-use App\Http\Controllers\produtos\RankingLucroProdutosController;
+use App\Http\Controllers\produtos\StockProdutosController;
+use App\Http\Controllers\produtos\LucroProdutosController;
 
 use App\Http\Controllers\relatorios\DiarioVendasController;
 use App\Http\Controllers\relatorios\PagamentosController;
+use App\Http\Controllers\relatorios\MensalVendasController;
+use App\Http\Controllers\relatorios\VencimentoController;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Arr;
@@ -52,22 +54,28 @@ Route::get('/fornecedores', [ListaFornecController::class, 'lista'])
 Route::get('/fornecedores/top5', [RankingFornecedoresController::class, 'topFornecedores'])
     ->name('fornecedores.top');
 
-//Produtos
-Route::get('/produtos', [ListaProdutosController::class, 'lista'])
-    -> name('produtos.lista');
+//Artigos
+Route::get('/artigos', [ListaProdutosController::class, 'lista'])
+    -> name('artigos.lista');
 
-Route::get('/produtos/ranking', [RankingProdutosController::class, 'index'])
-     ->name('produtos.ranking');
+Route::get('/artigos/ranking', [RankingProdutosController::class, 'index'])
+     ->name('artigos.ranking');
 
-Route::get('/produtos/abaixo-stock', [AbaixoStockProdutosController::class, 'index'])
-     ->name('produtos.abaixoStock');
+Route::get('/artigos/stock', [StockProdutosController::class, 'index'])
+     ->name('artigos.stock');
 
-Route::get('/produtos/ranking-lucro', [RankingLucroProdutosController::class, 'index'])
-    ->name('produtos.rankingLucro');
+Route::get('/artigos/lucro', [LucroProdutosController::class, 'index'])
+    ->name('artigos.lucro');
 
 //Relatorios
 Route::get('/relatorios/diario', [DiarioVendasController::class, 'index'])
     -> name('relatorios.diario');
 
-    Route::get('/relatorios/pagamentos', [PagamentosController::class, 'index'])
-    -> name('relatorios.pagamentos');
+Route::get('/relatorios/pagamentos', [PagamentosController::class, 'index'])
+    -> name('relatorios.pagamento');
+
+Route::get('/relatorios/mensal', [MensalVendasController::class, 'index'])
+    -> name('relatorios.mensal');
+
+Route::get('/relatorios/vencimento', [VencimentoController::class, 'index'])
+    -> name('relatorios.vencimento');

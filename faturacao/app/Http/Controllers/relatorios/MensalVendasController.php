@@ -9,7 +9,7 @@ use Illuminate\Support\Collection;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 
-class DiarioVendasController extends Controller
+class MensalVendasController extends Controller
 {
     public function index(Request $request)
     {
@@ -28,19 +28,21 @@ class DiarioVendasController extends Controller
 
         $detalhesFaturas = $this->buscarDetalhesFaturas($token, $faturasValidas);
 
-        $vendasPorDia = $this->calcularVendasPorDia($token, $detalhesFaturas);
+        $vendasPorMes = $this->calcularVendasPorMes($token, $detalhesFaturas);
 
-        $totais = $this->calcularTotais($vendasPorDia);
+        $totais = $this->calcularTotais($vendasPorMes);
 
-        $datasFormatadas = $this->formatarDatas($inicio, $fim);
-        $valoresPorDia = $this->extrairValoresPorDia($vendasPorDia, $inicio, $fim);
-        $lucroPorDia   = $this->extrairLucroPorDia($vendasPorDia, $inicio, $fim);
+        $ano = Carbon::parse($inicio)->year;
 
-        return view('relatorios.diarioVendas', [
-            'vendasPorDia' => $vendasPorDia,
-            'datasFormatadas' => $datasFormatadas,
-            'valoresPorDia' => $valoresPorDia,
-            'lucroPorDia'   => $lucroPorDia,
+        $mesesFormatados = $this->formatarMesesAno($ano);
+        $valoresPorMes   = $this->extrairValoresAno($vendasPorMes, $ano, 'vendas_com_iva');
+        $lucroPorMes     = $this->extrairValoresAno($vendasPorMes, $ano, 'lucro');
+
+        return view('relatorios.mensalVendas', [
+            'vendasPorMes' => $vendasPorMes,
+            'mesesFormatados' => $mesesFormatados,
+            'valoresPorMes' => $valoresPorMes,
+            'lucroPorMes' => $lucroPorMes,
             'periodoTexto' => $periodoTexto,
             'periodo' => $periodo,
             'inicio' => $inicio,
@@ -54,7 +56,7 @@ class DiarioVendasController extends Controller
         ]);
     }
 
-    private function calcularTotais(Collection $vendasPorDia): array
+    private function calcularTotais(Collection $vendasPorMes): array
     {
         $total_vendas_iva = 0;
         $total_vendas = 0;
@@ -63,7 +65,7 @@ class DiarioVendasController extends Controller
         $total_quantidade = 0;
         $total_num_vendas = 0;
 
-        foreach ($vendasPorDia as $dados) {
+        foreach ($vendasPorMes as $dados) {
             $total_vendas_iva += $dados['vendas_com_iva'] ?? 0;
             $total_vendas += $dados['vendas_sem_iva'] ?? 0;
             $total_custos += $dados['custos'] ?? 0;
@@ -84,36 +86,30 @@ class DiarioVendasController extends Controller
 
     private function definirPeriodo(Request $request)
     {
-        $hoje = Carbon::today()->format('Y-m-d');
-        $primeiroDoMes = Carbon::now()->startOfMonth()->format('Y-m-d');
-        $ultimoMesInicio = Carbon::now()->subMonth()->startOfMonth()->format('Y-m-d');
-        $ultimoMesFim = Carbon::now()->subMonth()->endOfMonth()->format('Y-m-d');
+        $anoAtual = Carbon::now()->year;
+        $anoAnterior = $anoAtual - 1;
 
-        $periodo = $request->input('periodo', 'mes');
+        $periodo = $request->input('periodo', 'ano_atual');
         $inicio = null;
         $fim = null;
         $periodoTexto = '';
 
         switch ($periodo) {
-            case 'mes':
-                $inicio = $primeiroDoMes;
-                $fim = $hoje;
-                $periodoTexto = "Mês atual: $primeiroDoMes a $hoje";
+            case 'ano_atual':
+                $inicio = Carbon::create($anoAtual, 1, 1)->format('Y-m-d');
+                $fim    = Carbon::create($anoAtual, 12, 31)->format('Y-m-d');
+                $periodoTexto = "Ano atual: $anoAtual";
                 break;
-            case 'ultimo_mes':
-                $inicio = $ultimoMesInicio;
-                $fim = $ultimoMesFim;
-                $periodoTexto = "Mês anterior: $ultimoMesInicio a $ultimoMesFim";
-                break;
-            case 'personalizado':
-                $inicio = $request->input('data_inicio');
-                $fim = $request->input('data_fim');
-                $periodoTexto = "Personalizado: $inicio a $fim";
+            case 'ano_anterior':
+                $inicio = Carbon::create($anoAnterior, 1, 1)->format('Y-m-d');
+                $fim    = Carbon::create($anoAnterior, 12, 31)->format('Y-m-d');
+                $periodoTexto = "Ano anterior: $anoAnterior";
                 break;
         }
 
         return [$inicio, $fim, $periodoTexto, $periodo];
     }
+
 
     private function buscarFaturasValidas(string $token, string $inicio, string $fim): Collection|bool
     {
@@ -124,14 +120,13 @@ class DiarioVendasController extends Controller
 
         return $faturas->filter(function ($fatura) use ($inicio, $fim) {
             $statusId = $fatura['status']['id'] ?? 0;
-            if ($statusId != 2) {
+            if ($statusId == 5 || $statusId == 0) {
                 return false;
             }
             $dataFatura = substr($fatura['date'], 0, 10);
             return $dataFatura >= $inicio && $dataFatura <= $fim;
         });
     }
-
 
     private function buscarDetalhesFaturas(string $token, Collection $faturasValidas): Collection
     {
@@ -176,20 +171,19 @@ class DiarioVendasController extends Controller
         return $detalhes;
     }
 
-
-    private function calcularVendasPorDia(string $token, Collection $detalhesFaturas): Collection
+    private function calcularVendasPorMes(string $token, Collection $detalhesFaturas): Collection
     {
         $produtosCache = [];
 
-        return $detalhesFaturas->groupBy(fn ($fatura) => substr($fatura['date'], 0, 10))
-            ->map(function ($faturasDia, $dia) use ($token, &$produtosCache) {
-                $vendasIVA = $faturasDia->sum(fn($f) => floatval($f['grossTotal'] ?? 0));
-                $vendas = $faturasDia->sum(fn($f) => floatval($f['netTotal'] ?? 0));
+        return $detalhesFaturas->groupBy(fn ($fatura) => substr($fatura['date'], 0, 7)) // Y-m
+            ->map(function ($faturasMes, $mes) use ($token, &$produtosCache) {
+                $vendasIVA = $faturasMes->sum(fn($f) => floatval($f['grossTotal'] ?? 0));
+                $vendas = $faturasMes->sum(fn($f) => floatval($f['netTotal'] ?? 0));
                 $custos = 0;
-                $numVendas = $faturasDia->count();
+                $numVendas = $faturasMes->count();
                 $quantidade = 0;
 
-                foreach ($faturasDia as $fatura) {
+                foreach ($faturasMes as $fatura) {
                     foreach ($fatura['lines'] ?? [] as $line) {
                         $quantLine = floatval($line['quantity'] ?? 0);
                         $quantidade += $quantLine;
@@ -217,7 +211,7 @@ class DiarioVendasController extends Controller
                 $lucro = $vendas - $custos;
 
                 return [
-                    'dia' => $dia,
+                    'mes' => $mes,
                     'vendas_com_iva' => $vendasIVA,
                     'vendas_sem_iva' => $vendas,
                     'custos' => $custos,
@@ -228,42 +222,27 @@ class DiarioVendasController extends Controller
             })->sortKeys();
     }
 
-    private function formatarDatas(string $inicio, string $fim): array
+    private function formatarMesesAno(int $ano): array
     {
-        $period = CarbonPeriod::create($inicio, $fim);
-        $datas = [];
-        foreach ($period as $data) {
-            $datas[] = $data->format('d-m');
+        $meses = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $meses[] = Carbon::create($ano, $m, 1)->translatedFormat('F'); // “janeiro”, “fevereiro”, ...
         }
-        return $datas;
+        return $meses;
     }
 
-    private function extrairValoresPorDia(Collection $vendasPorDia, string $inicio, string $fim): array
+    private function extrairValoresAno(Collection $vendasPorMes, int $ano, string $campo): array
     {
-        $period = CarbonPeriod::create($inicio, $fim);
-        $dados = $vendasPorDia->toArray();
-        $valores = [];
-        foreach ($period as $data) {
-            $chave = $data->format('Y-m-d');
-            $valores[] = isset($dados[$chave]) ? round($dados[$chave]['vendas_com_iva'], 2) : 0;
-        }
-        return $valores;
-    }
-
-    private function extrairLucroPorDia(Collection $vendasPorDia, string $inicio, string $fim): array
-    {
-        $period  = CarbonPeriod::create($inicio, $fim);
-        $dados   = $vendasPorDia->toArray();
+        $dados = $vendasPorMes->toArray(); // chave Y-m
         $valores = [];
 
-        foreach ($period as $data) {
-            $chave = $data->format('Y-m-d');
-            $valores[] = isset($dados[$chave]) ? round($dados[$chave]['lucro'], 2) : 0;
+        for ($m = 1; $m <= 12; $m++) {
+            $chave = sprintf('%d-%02d', $ano, $m);
+            $valores[] = isset($dados[$chave]) ? round($dados[$chave][$campo] ?? 0, 2) : 0;
         }
 
         return $valores;
     }
-
 
     private function listarTodasFaturasSemFiltro(string $token): Collection|bool
     {

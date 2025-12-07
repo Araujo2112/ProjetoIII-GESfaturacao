@@ -40,6 +40,10 @@
                             <i class="far fa-calendar-alt me-2"></i>
                             {{ $periodoTexto ?? 'Mês atual' }}
                         </div>
+                        <div class="btn-group" role="group" aria-label="Botões gráfico">
+                            <button type="button" id="btnLucro" class="btn btn-outline-primary">Lucro</button>
+                            <button type="button" id="btnVendas" class="btn btn-outline-primary">Vendas</button>
+                        </div>
                     </div>
                     <div class="col-12">
                         <div id="vendasChart" style="height: 350px;"></div>
@@ -49,12 +53,12 @@
                 <div class="row d-flex align-items-stretch mt-4">
                     <div style="overflow-x:auto;">
 
-                        <table class="table table-striped">
+                        <table class="table table-sm table-striped table-bordered table-hover">
                             <thead>
                                 <tr>
                                     <th>Dia</th>
                                     <th>Vendas c/IVA</th>
-                                    <th>Vendas</th>
+                                    <th>Vendas s/IVA</th>
                                     <th>Custos</th>
                                     <th>Lucro</th>
                                     <th>Quantidade</th>
@@ -97,9 +101,13 @@
     </div>
 
     <script>
-        window.vendasDatas = @json($datasFormatadas);
+        window.vendasDatas   = @json($datasFormatadas);
         window.vendasValores = @json($valoresPorDia);
+
+        window.lucroDatas   = @json($datasFormatadas);
+        window.lucroValores = @json($lucroPorDia);
     </script>
+
 
 @endsection
 
