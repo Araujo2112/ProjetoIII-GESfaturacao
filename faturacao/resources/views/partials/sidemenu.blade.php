@@ -77,7 +77,7 @@
                     Relatórios
                 </button>
                 <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="{{ route('relatorios.vencimento') }}">Vencimentos</a></li>
+                    <li><a class="dropdown-item" href="{{ route('relatorios.vencimento') }}">Cashflow - Vencimentos</a></li>
                     <li><a class="dropdown-item" href="#">Por Hora</a></li>
                     <li><a class="dropdown-item" href="{{ route('relatorios.diario') }}">Diário</a></li>
                     <li><a class="dropdown-item" href="{{ route('relatorios.pagamento') }}">Pagamentos</a></li>

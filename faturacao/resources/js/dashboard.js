@@ -1,8 +1,23 @@
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('Categorias Pie:', window.dashboardCategorias);
+    const lineData =
+        window.dashboardData &&
+        Array.isArray(window.dashboardData.totais) &&
+        window.dashboardData.totais.some(val => val > 0);
 
-    // Line chart
-    if (window.dashboardData) {
+    const categoriasValores =
+        window.dashboardCategorias &&
+        typeof window.dashboardCategorias === 'object' &&
+        window.dashboardCategorias.valores &&
+        Object.values(window.dashboardCategorias.valores).some(val => val > 0);
+
+    const categoriasQtd =
+        window.dashboardCategorias &&
+        window.dashboardCategorias.quantidadesPorDia &&
+        Object.values(window.dashboardCategorias.quantidadesPorDia).some(obj => 
+            obj && Object.values(obj).some(val => val > 0)
+        );
+
+    if (lineData && categoriasValores && categoriasQtd) {
         const areaOptions = {
             chart: {
                 type: 'line',
@@ -52,7 +67,128 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const areaChart = new ApexCharts(document.querySelector("#faturacaoChart"), areaOptions);
         areaChart.render();
+
+                const valoresCategorias = window.dashboardCategorias.valores;
+        const categoriasOrdenadas = Object.keys(valoresCategorias).sort();
+
+        const pieOptions = {
+            chart: {
+                type: 'pie',
+                height: 350
+            },
+            dataLabels: { 
+                enabled: true 
+            },
+            series: categoriasOrdenadas.map(cat => valoresCategorias[cat]),
+            labels: categoriasOrdenadas,
+            colors: ['#2980FF',
+                    '#FF6B00',
+                    '#FFCC00',
+                    '#00C853',
+                    '#10f1d3ff',
+                    '#D500F9',
+                    '#FF1744',
+                    '#FF4081',
+                    '#8D6E63',
+                    '#455A64',
+                    '#F5F5F5',
+                    '#263238',
+                    '#FFD180',
+                    '#B3E5FC',
+                    '#C8E6C9'
+            ],
+            legend: {
+                position: 'top',
+                horizontalAlign: 'center',
+                fontSize: '14px'
+            },
+            tooltip: {
+                y: {
+                    formatter: function (value) {
+                        return '€ ' + value.toFixed(2);
+                    }
+                }
+            },
+        };
+
+        const pieChart = new ApexCharts(
+            document.querySelector("#categorias€Chart"),
+            pieOptions
+        );
+        pieChart.render();
+
+        const qtdPorDia = window.dashboardCategorias.quantidadesPorDia;
+        const categoriasLabels = Object.keys(qtdPorDia).sort();
+
+        const categoriasSet = new Set();
+        categoriasLabels.forEach(dia => {
+            const catsNoDia = qtdPorDia[dia] || {};
+            Object.keys(catsNoDia).forEach(cat => categoriasSet.add(cat));
+        });
+        const categoriasLista = Array.from(categoriasSet).sort();
+
+        const series = categoriasLista.map(categoria => ({
+            name: categoria,
+            data: categoriasLabels.map(dia => {
+                const val = qtdPorDia[dia]?.[categoria];
+                return val === undefined ? null : val;
+            })
+        }));
+
+        const categoriasLabelsFormatadas = categoriasLabels.map(dataStr => {
+            const [ano, mes, dia] = dataStr.split('-');
+            return `${dia}/${mes}`;
+        });
+
+        const options = {
+            chart: {
+                type: 'bar',
+                height: 400,
+                stacked: true
+            },
+            dataLabels: { enabled: false },
+            series: series,
+            xaxis: {
+                categories: categoriasLabelsFormatadas,
+                title: { text: 'Dia' }
+            },
+            yaxis: {
+                title: { text: 'Quantidade' }
+            },
+            tooltip: {
+                shared: true,
+                intersect: false
+            },
+                        colors: ['#2980FF',
+                    '#FF6B00',
+                    '#FFCC00',
+                    '#00C853',
+                    '#10f1d3ff',
+                    '#D500F9',
+                    '#FF1744',
+                    '#FF4081',
+                    '#8D6E63',
+                    '#455A64',
+                    '#F5F5F5',
+                    '#263238',
+                    '#FFD180',
+                    '#B3E5FC',
+                    '#C8E6C9'
+            ],
+            legend: {
+                position: 'top',
+                horizontalAlign: 'center',
+                fontSize: '14px'
+            },
+        };
+
+        const chart = new ApexCharts(document.querySelector("#categoriasQtdChart"), options);
+        chart.render();
+
+    } else {
+
     }
+
 
     // Bar Chart - Vendas
     if (
@@ -64,9 +200,6 @@ document.addEventListener('DOMContentLoaded', function () {
             chart: {
                 type: 'bar',
                 height: 300,
-                toolbar: {
-                    show: true
-                }
             },
             dataLabels: {
                 enabled: false
@@ -130,7 +263,6 @@ document.addEventListener('DOMContentLoaded', function () {
             chart: {
                 type: 'bar',
                 height: 300,
-                toolbar: { show: true }
             },
             dataLabels: {
                 enabled: false
@@ -179,139 +311,5 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const comprasBarChart = new ApexCharts(document.querySelector("#comprasMesChart"), comprasBarOptions);
         comprasBarChart.render();
-    }
-
-    if (
-        window.dashboardCategorias &&
-        typeof window.dashboardCategorias === 'object' &&
-        window.dashboardCategorias.valores &&
-        Object.keys(window.dashboardCategorias.valores).length > 0
-    ) {
-        const valoresCategorias = window.dashboardCategorias.valores;
-        const categoriasOrdenadas = Object.keys(valoresCategorias).sort();
-
-        const pieOptions = {
-            chart: {
-                type: 'pie',
-                height: 350,
-                toolbar: { 
-                    show: true 
-                }
-            },
-            dataLabels: { 
-                enabled: true 
-            },
-            series: categoriasOrdenadas.map(cat => valoresCategorias[cat]),
-            labels: categoriasOrdenadas,
-            colors: ['#2980FF',
-                    '#FF6B00',
-                    '#FFCC00',
-                    '#00C853',
-                    '#10f1d3ff',
-                    '#D500F9',
-                    '#FF1744',
-                    '#FF4081',
-                    '#8D6E63',
-                    '#455A64',
-                    '#F5F5F5',
-                    '#263238',
-                    '#FFD180',
-                    '#B3E5FC',
-                    '#C8E6C9'
-            ],
-            legend: {
-                position: 'top',
-                horizontalAlign: 'center',
-                fontSize: '14px'
-            },
-            tooltip: {
-                y: {
-                    formatter: function (value) {
-                        return '€ ' + value.toFixed(2);
-                    }
-                }
-            },
-        };
-
-        const pieChart = new ApexCharts(
-            document.querySelector("#categorias€Chart"),
-            pieOptions
-        );
-        pieChart.render();
-    }
-
-    if (
-        window.dashboardCategorias &&
-        window.dashboardCategorias.quantidadesPorDia &&
-        Object.keys(window.dashboardCategorias.quantidadesPorDia).length > 0
-    ) {
-        const qtdPorDia = window.dashboardCategorias.quantidadesPorDia;
-        const categoriasLabels = Object.keys(qtdPorDia).sort();
-
-        const categoriasSet = new Set();
-        categoriasLabels.forEach(dia => {
-            const catsNoDia = qtdPorDia[dia] || {};
-            Object.keys(catsNoDia).forEach(cat => categoriasSet.add(cat));
-        });
-        const categoriasLista = Array.from(categoriasSet).sort();
-
-        const series = categoriasLista.map(categoria => ({
-            name: categoria,
-            data: categoriasLabels.map(dia => {
-                const val = qtdPorDia[dia]?.[categoria];
-                return val === undefined ? null : val;
-            })
-        }));
-
-        const categoriasLabelsFormatadas = categoriasLabels.map(dataStr => {
-            const [ano, mes, dia] = dataStr.split('-');
-            return `${dia}/${mes}`;
-        });
-
-        const options = {
-            chart: {
-                type: 'bar',
-                height: 400,
-                stacked: true,
-                toolbar: { show: true },
-            },
-            dataLabels: { enabled: false },
-            series: series,
-            xaxis: {
-                categories: categoriasLabelsFormatadas,
-                title: { text: 'Dia' }
-            },
-            yaxis: {
-                title: { text: 'Quantidade' }
-            },
-            tooltip: {
-                shared: true,
-                intersect: false
-            },
-                        colors: ['#2980FF',
-                    '#FF6B00',
-                    '#FFCC00',
-                    '#00C853',
-                    '#10f1d3ff',
-                    '#D500F9',
-                    '#FF1744',
-                    '#FF4081',
-                    '#8D6E63',
-                    '#455A64',
-                    '#F5F5F5',
-                    '#263238',
-                    '#FFD180',
-                    '#B3E5FC',
-                    '#C8E6C9'
-            ],
-            legend: {
-                position: 'top',
-                horizontalAlign: 'center',
-                fontSize: '14px'
-            },
-        };
-
-        const chart = new ApexCharts(document.querySelector("#categoriasQtdChart"), options);
-        chart.render();
     }
 });

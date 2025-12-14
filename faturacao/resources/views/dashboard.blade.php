@@ -65,19 +65,27 @@
         <!-- Faturação dos 7 Dias -->
         <section class="bg-white rounded shadow p-4 mx-auto mb-5" style="max-width:1400px;">
             <h4 class="text-center my-4">Análise da Faturação - Últimos 7 Dias</h4>
-            
-            <!-- Gráfico de Área -->
-            <div id="faturacaoChart" style="height:300px;"></div>
-            
-            <!-- Gráficos em duas colunas abaixo -->
-            <div class="row mt-4">
-                <div class="col-md-6">
-                    <div id="categorias€Chart" style="height:350px;"></div>
+
+            @if(empty($dadosCategorias['valores']) && empty($dadosCategorias['quantidadesPorDia']))
+
+                <div class="text-center">
+                    <h5>Sem faturas nos últimos 7 dias</h5>
                 </div>
-                <div class="col-md-6">
-                    <div id="categoriasQtdChart" style="height:350px;"></div>
+
+            @else
+
+                <div id="faturacaoChart" style="height:300px;"></div>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div id="categorias€Chart" style="height:350px;"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div id="categoriasQtdChart" style="height:350px;"></div>
+                    </div>
                 </div>
-            </div>
+
+            @endif
         </section>
 
 
@@ -126,11 +134,11 @@
 
     @if(isset($graficoComprasMeses))
         <script>
-        window.dashboardCompras = {
-        mesesLabels: @json($graficoComprasMeses['labels']),
-        comprasAnoAtual: @json($graficoComprasMeses['atual']),
-        comprasAnoAnterior: @json($graficoComprasMeses['anterior'])
-        };
+            window.dashboardCompras = {
+            mesesLabels: @json($graficoComprasMeses['labels']),
+            comprasAnoAtual: @json($graficoComprasMeses['atual']),
+            comprasAnoAnterior: @json($graficoComprasMeses['anterior'])
+            };
         </script>
     @endif
     

@@ -178,7 +178,7 @@ class DashboardController extends Controller
     }
 
     private function filtrarPorStatus(Collection $items) {
-        return $items->filter(fn($item) => ($item['statusId'] ?? 0) != 2);
+        return $items->filter(fn($item) => ($item['status']['id'] ?? 0) == 2);
     }
 
     private function filtrarPorStatusEData(Collection $items, $inicio, $fim) {

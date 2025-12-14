@@ -18,35 +18,45 @@ class VencimentoController extends Controller
             return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
         }
 
-        $faturasVencer = $this->buscarFaturasVencerProximos30Dias($token);
+        $faturasVencer = $this->buscarFaturasVencerProximos30Dias($token, 'sales');
         if ($faturasVencer === false) {
-            return redirect('/')->withErrors(['error' => 'Erro ao buscar faturas.']);
+            return redirect('/')->withErrors(['error' => 'Error fetching sales invoices.']);
         }
 
-        $contagemPorDia = $this->contarFaturasPorDia($faturasVencer);
+        $faturasVencerCompras = $this->buscarFaturasVencerProximos30Dias($token, 'purchases');
+        if ($faturasVencerCompras === false) {
+            return redirect('/')->withErrors(['error' => 'Error fetching purchase invoices.']);
+        }
+
+        $faturasVencer = $faturasVencer->sortBy('expiration')->values();
+        $faturasVencerCompras = $faturasVencerCompras->sortBy('expiration')->values();
 
         $hoje = Carbon::today()->format('Y-m-d');
         $limite = Carbon::today()->addDays(30)->format('Y-m-d');
         [$datasFormatadas, $datas] = $this->formatarDatas($hoje, $limite);
 
-        $contagemNormalizada = [];
-        foreach ($datas as $data) {
-            $contagemNormalizada[$data] = $contagemPorDia[$data] ?? 0;
-        }
+        $vendasMonetariasNormalizadas = $this->calcularTotaisMonetarios($faturasVencer, $datas);
+        $comprasMonetariasNormalizadas = $this->calcularTotaisMonetarios($faturasVencerCompras, $datas);
 
-        return view('relatorios.vencimento', [
-            'faturasVencer'        => $faturasVencer,
-            'contagemPorDia'       => $contagemPorDia,
-            'datasFormatadas'      => $datasFormatadas,
-            'datas'          => $datas,
-            'contagemNormalizada'  => $contagemNormalizada,
+        return view('relatorios.vencimentos', [
+            'dados' => [
+                'vendas' => [
+                    'faturas' => $faturasVencer,
+                    'monetario' => $vendasMonetariasNormalizadas,
+                ],
+                'compras' => [
+                    'faturas' => $faturasVencerCompras,
+                    'monetario' => $comprasMonetariasNormalizadas,
+                ],
+                'datas' => $datasFormatadas,
+                'datasRaw' => $datas,
+            ]
         ]);
     }
 
-
-    private function buscarFaturasVencerProximos30Dias(string $token): Collection|bool
+    private function buscarFaturasVencerProximos30Dias(string $token, string $tipo): Collection|bool
     {
-        $faturas = $this->listarTodasFaturasSemFiltro($token);
+        $faturas = $this->listarFaturasPorTipo($token, $tipo);
         if ($faturas === false) {
             return false;
         }
@@ -70,42 +80,19 @@ class VencimentoController extends Controller
         });
     }
 
-
-    private function contarFaturasPorDia(Collection $faturas): array
+    private function listarFaturasPorTipo(string $token, string $tipo): Collection|bool
     {
-        return $faturas
-            ->groupBy(function ($fatura) {
-                return substr($fatura['expiration'], 0, 10);
-            })
-            ->map(function ($grupo) {
-                return $grupo->count();
-            })
-            ->toArray();
-    }
-
-
-    private function formatarDatas(string $inicio, string $fim): array
-    {
-        $period = CarbonPeriod::create($inicio, $fim);
-        $datasFormatadas = [];
-        $datas = [];
-
-        foreach ($period as $data) {
-            $datasFormatadas[] = $data->format('d-m');
-            $datas[] = $data->format('Y-m-d');
-        }
-
-        return [$datasFormatadas, $datas];
-    }
-
-
-    private function listarTodasFaturasSemFiltro(string $token): Collection|bool
-    {
-        $endpoints = [
-            'https://api.gesfaturacao.pt/api/v1.0.4/sales/invoices',
-            'https://api.gesfaturacao.pt/api/v1.0.4/sales/simplified-invoices',
-            'https://api.gesfaturacao.pt/api/v1.0.4/sales/receipt-invoices',
-        ];
+        $endpoints = match($tipo) {
+            'sales' => [
+                'https://api.gesfaturacao.pt/api/v1.0.4/sales/invoices',
+                'https://api.gesfaturacao.pt/api/v1.0.4/sales/simplified-invoices',
+                'https://api.gesfaturacao.pt/api/v1.0.4/sales/receipt-invoices',
+            ],
+            'purchases' => [
+                'https://api.gesfaturacao.pt/api/v1.0.4/purchases/invoices',
+            ],
+            default => []
+        };
 
         $todasFaturas = [];
 
@@ -125,5 +112,42 @@ class VencimentoController extends Controller
         }
 
         return collect($todasFaturas);
+    }
+
+    private function calcularTotaisMonetarios(Collection $faturas, array $datas): array
+    {
+        $totais = $faturas
+            ->groupBy(function ($fatura) {
+                return substr($fatura['expiration'], 0, 10);
+            })
+            ->map(function ($grupo) {
+                return abs($grupo->sum('balance'));
+            })
+            ->toArray();
+
+        return $this->normalizarContagem($totais, $datas);
+    }
+
+    private function normalizarContagem(array $contagem, array $datas): array
+    {
+        $contagemNormalizada = [];
+        foreach ($datas as $data) {
+            $contagemNormalizada[$data] = $contagem[$data] ?? 0;
+        }
+        return $contagemNormalizada;
+    }
+
+    private function formatarDatas(string $inicio, string $fim): array
+    {
+        $period = CarbonPeriod::create($inicio, $fim);
+        $datasFormatadas = [];
+        $datas = [];
+
+        foreach ($period as $data) {
+            $datasFormatadas[] = $data->format('d-m');
+            $datas[] = $data->format('Y-m-d');
+        }
+
+        return [$datasFormatadas, $datas];
     }
 }
