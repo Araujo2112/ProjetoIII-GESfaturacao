@@ -5,6 +5,8 @@ namespace App\Http\Controllers\produtos;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Str;
 
 class StockProdutosController extends Controller
 {
@@ -15,8 +17,7 @@ class StockProdutosController extends Controller
             return redirect('/')->withErrors(['error' => 'Por favor, faça login novamente.']);
         }
 
-        $validacao = $this->validateToken($token);
-        if (!$validacao) {
+        if (!$this->validateToken($token)) {
             return redirect('/')->withErrors(['error' => 'Token inválido ou expirado.']);
         }
 
@@ -24,6 +25,7 @@ class StockProdutosController extends Controller
         if (!$produtosRaw) {
             return view('produtos.stock', [
                 'produtos' => [],
+                'graficoDados' => ['nomes' => [], 'diferencas' => [], 'codigos' => []],
                 'mensagem' => 'Nenhum produto encontrado'
             ]);
         }
@@ -32,6 +34,86 @@ class StockProdutosController extends Controller
 
         return view('produtos.stock', [
             'produtos' => $produtosFormatados,
+            'graficoDados' => [
+                'nomes' => array_column($produtosFormatados, 'nome'),
+                'diferencas' => array_column($produtosFormatados, 'falta_repor'),
+                'codigos' => array_column($produtosFormatados, 'cod'),
+            ]
+        ]);
+    }
+
+    /**
+     * Export PDF (com gráfico enviado como base64)
+     */
+    public function exportPdf(Request $request)
+    {
+        $token = session('user.token');
+        if (!$token) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login novamente.']);
+        }
+
+        if (!$this->validateToken($token)) {
+            return redirect('/')->withErrors(['error' => 'Token inválido ou expirado.']);
+        }
+
+        $chartImg = $request->input('chart_img');
+        if (!$chartImg || !Str::startsWith($chartImg, 'data:image')) {
+            return back()->withErrors(['error' => 'Não foi possível obter a imagem do gráfico para exportação.']);
+        }
+
+        $produtosRaw = $this->fetchProdutos();
+        $produtosFormatados = $this->formatarProdutosStockBaixo($produtosRaw);
+
+        $pdf = Pdf::loadView('exports.produtos_stock_baixo_pdf', [
+            'produtos' => $produtosFormatados,
+            'chartImg' => $chartImg,
+            'geradoEm' => now(),
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download('top_5_artigos_abaixo_stock.pdf');
+    }
+
+    /**
+     * Export CSV
+     */
+    public function exportCsv(Request $request)
+    {
+        $token = session('user.token');
+        if (!$token) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login novamente.']);
+        }
+
+        if (!$this->validateToken($token)) {
+            return redirect('/')->withErrors(['error' => 'Token inválido ou expirado.']);
+        }
+
+        $produtosRaw = $this->fetchProdutos();
+        $produtosFormatados = $this->formatarProdutosStockBaixo($produtosRaw);
+
+        $filename = 'top_5_artigos_abaixo_stock.csv';
+
+        return response()->streamDownload(function () use ($produtosFormatados) {
+            $out = fopen('php://output', 'w');
+
+            // BOM UTF-8
+            echo "\xEF\xBB\xBF";
+
+            fputcsv($out, ['Código', 'Nome', 'Categoria', 'Stock Atual', 'Stock Mínimo', 'Falta Repor'], ';');
+
+            foreach ($produtosFormatados as $p) {
+                fputcsv($out, [
+                    $p['cod'] ?? '',
+                    $p['nome'] ?? '',
+                    $p['categoria'] ?? 'Sem Categoria',
+                    number_format((float)($p['stock_atual'] ?? 0), 2, ',', '.'),
+                    number_format((float)($p['stock_minimo'] ?? 0), 2, ',', '.'),
+                    number_format((float)($p['falta_repor'] ?? 0), 2, ',', '.'),
+                ], ';');
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 
@@ -51,8 +133,8 @@ class StockProdutosController extends Controller
         $produtosFormatados = [];
 
         foreach ($produtos as $produto) {
-            $stockAtual = (float) ($produto['stock'] ?? 0);
-            $stockMinimo = (float) ($produto['minStock'] ?? 0);
+            $stockAtual = (float)($produto['stock'] ?? 0);
+            $stockMinimo = (float)($produto['minStock'] ?? 0);
 
             if ($stockAtual < $stockMinimo) {
                 $diferenca = $stockMinimo - $stockAtual;
@@ -69,10 +151,9 @@ class StockProdutosController extends Controller
             }
         }
 
-        usort($produtosFormatados, fn($a, $b) => $b['diferenca'] <=> $a['diferenca']);
+        usort($produtosFormatados, fn($a, $b) => (float)$b['diferenca'] <=> (float)$a['diferenca']);
         return array_slice($produtosFormatados, 0, 5);
     }
-
 
     private function validateToken($token): bool
     {

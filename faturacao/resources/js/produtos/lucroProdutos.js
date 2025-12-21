@@ -11,8 +11,8 @@ document.addEventListener('DOMContentLoaded', function() {
         chart: {
             type: 'bar',
             height: 350,
-            toolbar: { 
-                show: true 
+            toolbar: {
+                show: true
             }
         },
         series: [{
@@ -40,9 +40,11 @@ document.addEventListener('DOMContentLoaded', function() {
             enabled: true,
             formatter: (value) => value.toFixed(1) + '%',
         },
-
     };
 
-    const chart = new ApexCharts(document.querySelector("#lucroProdutosChart"), options);
-    chart.render();
+    window.lucroProdutosChart = new ApexCharts(
+        document.querySelector("#lucroProdutosChart"),
+        options
+    );
+    window.lucroProdutosChart.render();
 });

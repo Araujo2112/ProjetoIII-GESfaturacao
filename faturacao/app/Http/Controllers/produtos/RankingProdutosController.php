@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Str;
 
 class RankingProdutosController extends Controller
 {
@@ -24,53 +26,7 @@ class RankingProdutosController extends Controller
 
         [$inicio, $fim, $periodoTexto, $periodo] = $this->definirPeriodo($request);
 
-        $faturasValidas = $this->buscarFaturasValidas($token, $inicio, $fim);
-        if (!$faturasValidas || $faturasValidas->isEmpty()) {
-            return view('produtos.topProdutos', [
-                'produtos' => [],
-                'periodoTexto' => $periodoTexto,
-                'graficoDados' => ['nomes' => [], 'qtds' => []],
-            ]);
-        }
-
-        $faturasDetalhadas = $this->buscarDetalhesFaturas($token, $faturasValidas);
-        if ($faturasDetalhadas->isEmpty()) {
-            return view('produtos.topProdutos', [
-                'produtos' => [],
-                'periodoTexto' => $periodoTexto,
-                'graficoDados' => ['nomes' => [], 'qtds' => []],
-            ]);
-        }
-
-        $qtdPorProduto = $this->calcularQtdPorProduto($faturasDetalhadas);
-
-        if (empty($qtdPorProduto)) {
-            return view('produtos.topProdutos', [
-                'produtos' => [],
-                'periodoTexto' => $periodoTexto,
-                'graficoDados' => ['nomes' => [], 'qtds' => []],
-            ]);
-        }
-
-        arsort($qtdPorProduto);
-        $top5Ids = array_slice(array_keys($qtdPorProduto), 0, 5);
-
-
-        $topProdutos = [];
-        foreach ($top5Ids as $prodId) {
-            $produtoData = $this->fetchProdutosID($prodId, $token);
-            if (!empty($produtoData)) {
-                $topProdutos[] = [
-                    'cod' => $produtoData['code'] ?? '',
-                    'nome' => $produtoData['description'] ?? '',
-                    'categoria' => $produtoData['category']['name'] ?? 'Sem Categoria',
-                    'qtd' => $qtdPorProduto[$prodId] ?? 0,
-                    'preco_c_iva' => (float) ($produtoData['pricePvp'] ?? 0),
-                ];
-            }
-        }
-
-        usort($topProdutos, fn($a, $b) => $b['qtd'] <=> $a['qtd']);
+        $topProdutos = $this->obterTopProdutos($token, $inicio, $fim);
 
         return view('produtos.topProdutos', [
             'produtos' => $topProdutos,
@@ -82,11 +38,160 @@ class RankingProdutosController extends Controller
         ]);
     }
 
+    /**
+     * Export PDF - recebe chart_img (data URI) e modo (mais/menos)
+     */
+    public function exportPdf(Request $request)
+    {
+        $token = session('user.token');
+        if (!$token) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login novamente.']);
+        }
+
+        if (!$this->validateToken($token)) {
+            return redirect('/')->withErrors(['error' => 'Token inválido ou expirado.']);
+        }
+
+        $chartImg = $request->input('chart_img');
+        if (!$chartImg || !Str::startsWith($chartImg, 'data:image')) {
+            return back()->withErrors(['error' => 'Não foi possível obter a imagem do gráfico para exportação.']);
+        }
+
+        $modo = $request->input('modo', 'mais');
+        if (!in_array($modo, ['mais', 'menos'])) {
+            $modo = 'mais';
+        }
+
+        [$inicio, $fim, $periodoTexto] = $this->definirPeriodo($request);
+
+        $topProdutos = $this->obterTopProdutos($token, $inicio, $fim);
+
+        // Ordenação para bater com o que o utilizador está a ver
+        usort($topProdutos, function ($a, $b) use ($modo) {
+            $qa = (float)($a['qtd'] ?? 0);
+            $qb = (float)($b['qtd'] ?? 0);
+            return ($modo === 'menos') ? ($qa <=> $qb) : ($qb <=> $qa);
+        });
+
+        $pdf = Pdf::loadView('exports.produtos_top_pdf', [
+            'produtos' => $topProdutos,
+            'chartImg' => $chartImg,
+            'geradoEm' => now(),
+            'periodoTexto' => $periodoTexto,
+            'modoTexto' => ($modo === 'menos') ? '- Vendidos' : '+ Vendidos',
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download('top_5_artigos_' . ($modo === 'menos' ? 'menos' : 'mais') . '_vendidos.pdf');
+    }
+
+    /**
+     * Export CSV - usa query string (periodo, datas) e modo (mais/menos)
+     */
+    public function exportCsv(Request $request)
+    {
+        $token = session('user.token');
+        if (!$token) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login novamente.']);
+        }
+
+        if (!$this->validateToken($token)) {
+            return redirect('/')->withErrors(['error' => 'Token inválido ou expirado.']);
+        }
+
+        $modo = $request->input('modo', 'mais');
+        if (!in_array($modo, ['mais', 'menos'])) {
+            $modo = 'mais';
+        }
+
+        [$inicio, $fim, $periodoTexto] = $this->definirPeriodo($request);
+        $topProdutos = $this->obterTopProdutos($token, $inicio, $fim);
+
+        usort($topProdutos, function ($a, $b) use ($modo) {
+            $qa = (float)($a['qtd'] ?? 0);
+            $qb = (float)($b['qtd'] ?? 0);
+            return ($modo === 'menos') ? ($qa <=> $qb) : ($qb <=> $qa);
+        });
+
+        $filename = 'top_5_artigos_' . ($modo === 'menos' ? 'menos' : 'mais') . '_vendidos.csv';
+
+        return response()->streamDownload(function () use ($topProdutos, $periodoTexto, $modo) {
+            $out = fopen('php://output', 'w');
+
+            // BOM UTF-8 (Excel PT)
+            echo "\xEF\xBB\xBF";
+
+            // Cabeçalho extra (opcional)
+            fputcsv($out, ['Relatório', 'Top 5 Artigos', ($modo === 'menos' ? '- Vendidos' : '+ Vendidos')], ';');
+            fputcsv($out, ['Período', $periodoTexto], ';');
+            fputcsv($out, [], ';');
+
+            // Cabeçalho tabela
+            fputcsv($out, ['Código', 'Nome', 'Categoria', 'Qtd Vendida', 'Preço c/IVA'], ';');
+
+            foreach ($topProdutos as $p) {
+                fputcsv($out, [
+                    $p['cod'] ?? '',
+                    $p['nome'] ?? '',
+                    $p['categoria'] ?? 'Sem Categoria',
+                    number_format((float)($p['qtd'] ?? 0), 0, ',', '.'),
+                    number_format((float)($p['preco_c_iva'] ?? 0), 2, ',', '.'),
+                ], ';');
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
+     * ---- Helpers ----
+     */
+
+    private function obterTopProdutos(string $token, string $inicio, string $fim): array
+    {
+        $faturasValidas = $this->buscarFaturasValidas($token, $inicio, $fim);
+        if (!$faturasValidas || $faturasValidas->isEmpty()) {
+            return [];
+        }
+
+        $faturasDetalhadas = $this->buscarDetalhesFaturas($token, $faturasValidas);
+        if ($faturasDetalhadas->isEmpty()) {
+            return [];
+        }
+
+        $qtdPorProduto = $this->calcularQtdPorProduto($faturasDetalhadas);
+        if (empty($qtdPorProduto)) {
+            return [];
+        }
+
+        arsort($qtdPorProduto);
+        $top5Ids = array_slice(array_keys($qtdPorProduto), 0, 5);
+
+        $topProdutos = [];
+        foreach ($top5Ids as $prodId) {
+            $produtoData = $this->fetchProdutosID($prodId, $token);
+            if (!empty($produtoData)) {
+                $topProdutos[] = [
+                    'cod' => $produtoData['code'] ?? '',
+                    'nome' => $produtoData['description'] ?? '',
+                    'categoria' => $produtoData['category']['name'] ?? 'Sem Categoria',
+                    'qtd' => $qtdPorProduto[$prodId] ?? 0,
+                    'preco_c_iva' => (float)($produtoData['pricePvp'] ?? 0),
+                ];
+            }
+        }
+
+        // Garantir ordem por defeito: + vendidos
+        usort($topProdutos, fn($a, $b) => (float)$b['qtd'] <=> (float)$a['qtd']);
+
+        return $topProdutos;
+    }
+
     private function definirPeriodo(Request $request)
     {
         $hoje = Carbon::today()->format('Y-m-d');
         $inicioSemanaAtual = Carbon::now()->startOfWeek()->format('Y-m-d');
-        $fimSemanaAtual = Carbon::now()->endOfWeek()->format('Y-m-d');
         $inicioSemanaPassada = Carbon::now()->subWeek()->startOfWeek()->format('Y-m-d');
         $fimSemanaPassada = Carbon::now()->subWeek()->endOfWeek()->format('Y-m-d');
         $primeiroDoMes = Carbon::now()->startOfMonth()->format('Y-m-d');
@@ -209,7 +314,7 @@ class RankingProdutosController extends Controller
                 } elseif ($response instanceof \Exception) {
                     \Log::error('Erro na requisição: Exceção - ' . $response->getMessage());
                 } else {
-                    \Log::error('Erro na requisição: ' . (method_exists($response, 'status') ? $response->status() : 'Desconhecido') . ' - ' . (method_exists($response, 'body') ? $response->body() : ''));
+                    \Log::error('Erro na requisição: ' . (method_exists($response, 'status') ? $response->status() : 'Desconhecido'));
                 }
             }
         });
@@ -217,7 +322,6 @@ class RankingProdutosController extends Controller
         return $detalhes;
     }
 
-    // SOMA quantidade por article.id
     private function calcularQtdPorProduto(Collection $faturasDetalhadas): array
     {
         $qtdPorProduto = [];
@@ -225,11 +329,9 @@ class RankingProdutosController extends Controller
         foreach ($faturasDetalhadas as $fatura) {
             foreach ($fatura['lines'] ?? [] as $linha) {
                 $artigoId = $linha['article']['id'] ?? null;
-                if (!$artigoId) {
-                    continue;
-                }
+                if (!$artigoId) continue;
 
-                $quantidade = (float) ($linha['quantity'] ?? 0);
+                $quantidade = (float)($linha['quantity'] ?? 0);
 
                 if (!isset($qtdPorProduto[$artigoId])) {
                     $qtdPorProduto[$artigoId] = 0;
@@ -242,7 +344,6 @@ class RankingProdutosController extends Controller
         return $qtdPorProduto;
     }
 
-    // NOVO: busca produto por ID
     private function fetchProdutosID($id, $token)
     {
         $response = Http::withHeaders([

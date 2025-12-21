@@ -5,7 +5,19 @@
 @section('content')
     <div class="bg-dark-subtle d-flex justify-content-center align-items-start min-vh-100 pt-5">
         <div class="bg-white rounded shadow p-4 mx-auto" style="width:100%; max-width:1400px; min-height:500px;">
-            <h1 class="text-dark text-center mb-4">Top 5 Artigos - Maior Lucro</h1>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1 class="text-dark text-center m-0 flex-grow-1">Top 5 Artigos - Maior Lucro</h1>
+
+                {{-- Botões Export (direita) --}}
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="exportLucroPdf()">
+                        Exportar PDF
+                    </button>
+                    <a class="btn btn-outline-secondary btn-sm" href="{{ route('artigos.lucro.export.csv') }}">
+                        Exportar CSV
+                    </a>
+                </div>
+            </div>
 
             @if(empty($produtos))
                 <p class="text-center mt-4">Nenhum artigo encontrado.</p>
@@ -55,6 +67,40 @@
     @if(!empty($graficoDados))
         <script>
             window.lucroProdutosData = @json($graficoDados);
+            window.csrfToken = "{{ csrf_token() }}";
+
+            async function exportLucroPdf() {
+                try {
+                    if (!window.lucroProdutosChart) {
+                        alert('O gráfico ainda não está pronto. Tenta novamente em 1-2 segundos.');
+                        return;
+                    }
+
+                    const { imgURI } = await window.lucroProdutosChart.dataURI();
+
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = "{{ route('artigos.lucro.export.pdf') }}";
+
+                    form.innerHTML = `
+                        <input type="hidden" name="_token" value="${window.csrfToken}">
+                        <input type="hidden" name="chart_img" value="${imgURI}">
+                    `;
+
+                    document.body.appendChild(form);
+                    form.submit();
+                } catch (e) {
+                    console.error(e);
+                    alert('Erro ao exportar PDF. Verifica a consola.');
+                }
+            }
+        </script>
+    @else
+        <script>
+            // Se não há dados, mantém o botão PDF a dar feedback simples
+            function exportLucroPdf() {
+                alert('Sem dados para exportar.');
+            }
         </script>
     @endif
 @endsection

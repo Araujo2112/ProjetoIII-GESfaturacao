@@ -6,23 +6,35 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class RankingClientesController extends Controller
 {
+    private function validateToken($token): bool
+    {
+        $response = Http::withHeaders([
+            'Authorization' => $token,
+            'Accept' => 'application/json',
+        ])->post('https://api.gesfaturacao.pt/api/v1.0.4/validate-token', []);
+
+        return $response->successful();
+    }
+
     private function clientes($inicio = null, $fim = null)
     {
         $token = session('user.token');
         if (!$token) {
-            return redirect('/')->withErrors(['error' => 'Por favor, faça login novamente.']);
+            return null;
         }
 
-        $validacao = $this->validateToken($token);
+        if (!$this->validateToken($token)) {
+            return null;
+        }
 
         $response = Http::withHeaders([
             'Authorization' => $token,
             'Accept' => 'application/json',
         ])->get('https://api.gesfaturacao.pt/api/v1.0.4/sales/invoices');
-
 
         $invoices = $response->json();
         $data = $invoices['data'] ?? $invoices;
@@ -32,6 +44,7 @@ class RankingClientesController extends Controller
             if (empty($invoice['client']['id']) || empty($invoice['client']['name'])) {
                 continue;
             }
+            // Apenas faturas pagas/emitidas (status id=2) conforme o teu código
             if (empty($invoice['status']['id']) || intval($invoice['status']['id']) !== 2) {
                 continue;
             }
@@ -44,7 +57,7 @@ class RankingClientesController extends Controller
             $clientId = $invoice['client']['id'];
             $clientName = $invoice['client']['name'];
             $vatNumber = $invoice['client']['vatNumber'] ?? '';
-            $total = (float)$invoice['total'];
+            $total = (float)($invoice['total'] ?? 0);
 
             if (!isset($ranking[$clientId])) {
                 $ranking[$clientId] = [
@@ -59,18 +72,14 @@ class RankingClientesController extends Controller
             $ranking[$clientId]['total_euros'] += $total;
             $ranking[$clientId]['num_vendas'] += 1;
         }
+
         return collect($ranking);
     }
 
-    private function validateToken($token) {
-        $response = Http::withHeaders([
-            'Authorization' => $token,
-            'Accept' => 'application/json',
-        ])->post('https://api.gesfaturacao.pt/api/v1.0.4/validate-token', []);
-        return $response->json();
-    }
-
-    public function topClientes(Request $request)
+    /**
+     * Resolve período e devolve: [$inicio, $fim, $periodoTexto]
+     */
+    private function resolverPeriodo(Request $request): array
     {
         $hoje = Carbon::today()->format('Y-m-d');
         $ontem = Carbon::yesterday()->format('Y-m-d');
@@ -85,7 +94,7 @@ class RankingClientesController extends Controller
         $inicio = $fim = null;
         $periodoTexto = '';
 
-        switch($periodo) {
+        switch ($periodo) {
             case 'geral':
                 $periodoTexto = "Todos os dados disponíveis";
                 $inicio = null;
@@ -120,15 +129,40 @@ class RankingClientesController extends Controller
                 $fim = $request->input('data_fim');
                 $periodoTexto = "Personalizado: $inicio a $fim";
                 break;
+            default:
+                $periodoTexto = "Todos os dados disponíveis";
+                $inicio = null; $fim = null;
+                break;
         }
+
+        return [$inicio, $fim, $periodoTexto];
+    }
+
+    /**
+     * Devolve os dois top5 (vendas e euros)
+     */
+    private function obterTop5(Request $request): array
+    {
+        [$inicio, $fim, $periodoTexto] = $this->resolverPeriodo($request);
 
         $ranking = $this->clientes($inicio, $fim);
         if ($ranking === null) {
-            return redirect()->route('login');
+            return [null, null, $periodoTexto];
         }
 
         $top5Vendas = $ranking->sortByDesc('num_vendas')->take(5)->values();
-        $top5Euros = $ranking->sortByDesc('total_euros')->take(5)->values();
+        $top5Euros  = $ranking->sortByDesc('total_euros')->take(5)->values();
+
+        return [$top5Vendas, $top5Euros, $periodoTexto];
+    }
+
+    public function topClientes(Request $request)
+    {
+        [$top5Vendas, $top5Euros, $periodoTexto] = $this->obterTop5($request);
+
+        if ($top5Vendas === null) {
+            return redirect()->route('login')->withErrors(['error' => 'Por favor, faça login novamente.']);
+        }
 
         return view('clientes.topClientes', [
             'top5ClientesVendas' => $top5Vendas,
@@ -136,7 +170,86 @@ class RankingClientesController extends Controller
             'periodoTexto' => $periodoTexto,
         ]);
     }
+
+    /**
+     * Exporta PDF do modo atual (qtd ou euros)
+     */
+    public function exportPdf(Request $request)
+    {
+        [$top5Vendas, $top5Euros, $periodoTexto] = $this->obterTop5($request);
+        if ($top5Vendas === null) {
+            return redirect()->route('login')->withErrors(['error' => 'Por favor, faça login novamente.']);
+        }
+
+        $modo = $request->input('mode', 'qtd'); // 'qtd' ou 'euros'
+        $chartImg = $request->input('chart_img');
+
+        $dados = ($modo === 'euros') ? $top5Euros : $top5Vendas;
+
+        $titulo = ($modo === 'euros')
+            ? 'Top 5 Clientes — Total (€)'
+            : 'Top 5 Clientes — Nº Vendas';
+
+        $pdf = Pdf::loadView('exports.clientes_top5_pdf', [
+            'titulo' => $titulo,
+            'periodoTexto' => $periodoTexto,
+            'modo' => $modo,
+            'clientes' => $dados,
+            'chartImg' => $chartImg,
+            'geradoEm' => now(),
+        ])->setPaper('a4', 'portrait');
+
+        $nome = ($modo === 'euros')
+            ? 'top_5_clientes_total_euros.pdf'
+            : 'top_5_clientes_num_vendas.pdf';
+
+        return $pdf->download($nome);
+    }
+
+    /**
+     * Exporta CSV do modo atual (qtd ou euros)
+     */
+    public function exportCsv(Request $request)
+    {
+        [$top5Vendas, $top5Euros, $periodoTexto] = $this->obterTop5($request);
+        if ($top5Vendas === null) {
+            return redirect()->route('login')->withErrors(['error' => 'Por favor, faça login novamente.']);
+        }
+
+        $modo = $request->input('mode', 'qtd'); // 'qtd' ou 'euros'
+        $dados = ($modo === 'euros') ? $top5Euros : $top5Vendas;
+
+        $filename = ($modo === 'euros')
+            ? 'top_5_clientes_total_euros.csv'
+            : 'top_5_clientes_num_vendas.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ];
+
+        $callback = function () use ($dados) {
+            $out = fopen('php://output', 'w');
+
+            // BOM UTF-8 (Excel PT)
+            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+            // Cabeçalho
+            fputcsv($out, ['Cód.', 'Cliente', 'NIF', 'Nº Vendas', 'Total (€)'], ';');
+
+            foreach ($dados as $c) {
+                fputcsv($out, [
+                    $c['id'] ?? '',
+                    $c['cliente'] ?? '',
+                    $c['nif'] ?? '',
+                    $c['num_vendas'] ?? 0,
+                    number_format((float)($c['total_euros'] ?? 0), 2, ',', '.'),
+                ], ';');
+            }
+
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
 }
-
-
-

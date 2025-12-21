@@ -5,7 +5,23 @@
 @section('content')
     <div class="bg-dark-subtle d-flex justify-content-center align-items-start min-vh-100 pt-5">
         <div class="bg-white rounded shadow p-4 mx-auto" style="width:100%; max-width:1400px; min-height:380px;">
-            <h1 class="text-dark text-center">Top 5 Clientes</h1>
+
+            {{-- Header + Botões Export --}}
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1 class="text-dark text-center m-0 flex-grow-1">Top 5 Clientes</h1>
+
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="exportTopClientesPdf()">
+                        Exportar PDF
+                    </button>
+
+                    <a class="btn btn-outline-secondary btn-sm"
+                       id="exportTopClientesCsv"
+                       href="{{ route('clientes.top.export.csv', array_merge(request()->query(), ['mode' => 'qtd'])) }}">
+                        Exportar CSV
+                    </a>
+                </div>
+            </div>
 
             {{-- Filtro --}}
             <form method="GET" class="d-flex align-items-center mb-4" style="gap:1rem;" id="filtroForm">
@@ -20,13 +36,16 @@
                     <option value="ultimo_ano" {{ request('periodo')=='ultimo_ano' ? 'selected' : '' }}>Último Ano</option>
                     <option value="personalizado" {{ request('periodo')=='personalizado' ? 'selected' : '' }}>Personalizado</option>
                 </select>
+
                 <div id="camposPersonalizado" class="d-flex align-items-center" style="gap:0.5rem;">
                     <input type="date" name="data_inicio" value="{{ request('data_inicio') }}" class="form-control" style="width:auto;">
                     <span class="mx-1">a</span>
                     <input type="date" name="data_fim" value="{{ request('data_fim') }}" class="form-control" style="width:auto;">
                 </div>
 
-                <button type="submit" class="btn btn-primary" style="width:auto; max-width:150px; white-space:nowrap;">Aplicar Filtro</button>
+                <button type="submit" class="btn btn-primary" style="width:auto; max-width:150px; white-space:nowrap;">
+                    Aplicar Filtro
+                </button>
             </form>
 
             {{-- Gráfico/Tabela --}}
@@ -39,18 +58,19 @@
                     </div>
                 </div>
             @else
-
                 <div class="row mt-5">
                     <div class="bg-light px-3 py-2 rounded border d-flex align-items-center justify-content-between">
                         <div>
                             <i class="far fa-calendar-alt me-2"></i>
                             {{ $periodoTexto ?? 'Todos os dados disponíveis' }}
                         </div>
+
                         <div class="btn-group" role="group" aria-label="Botões gráfico">
                             <button type="button" id="btnQtd" class="btn btn-outline-primary">Qtd</button>
                             <button type="button" id="btnEuros" class="btn btn-outline-primary">€</button>
                         </div>
                     </div>
+
                     <div class="col-12">
                         <div id="topClientesVendasChart" style="height: 350px;"></div>
                     </div>
@@ -73,7 +93,6 @@
                         </table>
                     </div>
                 </div>
-
             @endif
         </div>
     </div>
@@ -87,10 +106,54 @@
                 nomesEuros: @json($top5ClientesEuros->pluck('cliente')->all()),
                 tableVendas: @json($top5ClientesVendas),
                 tableEuros: @json($top5ClientesEuros)
+            };
+
+            window.csrfToken = "{{ csrf_token() }}";
+            window.topClientesMode = "qtd"; // default
+
+            function atualizarLinkCsvTopClientes() {
+                const link = document.getElementById('exportTopClientesCsv');
+                if (!link) return;
+
+                const url = new URL(link.href);
+                url.searchParams.set('mode', window.topClientesMode);
+                link.href = url.toString();
+            }
+
+            async function exportTopClientesPdf() {
+                try {
+                    if (!window.topClientesChart) {
+                        alert('O gráfico ainda não está pronto. Tenta novamente em 1-2 segundos.');
+                        return;
+                    }
+
+                    const { imgURI } = await window.topClientesChart.dataURI();
+
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = "{{ route('clientes.top.export.pdf', request()->query()) }}";
+
+                    form.innerHTML = `
+                        <input type="hidden" name="_token" value="${window.csrfToken}">
+                        <input type="hidden" name="chart_img" value="${imgURI}">
+                        <input type="hidden" name="mode" value="${window.topClientesMode}">
+                    `;
+
+                    document.body.appendChild(form);
+                    form.submit();
+                } catch (e) {
+                    console.error(e);
+                    alert('Erro ao exportar PDF. Verifica a consola.');
+                }
+            }
+        </script>
+    @else
+        <script>
+            function exportTopClientesPdf() {
+                alert('Sem dados para exportar.');
             }
         </script>
     @endif
-    
 @endsection
 
 @push('scripts')

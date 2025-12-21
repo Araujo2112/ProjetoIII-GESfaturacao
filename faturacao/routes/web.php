@@ -28,7 +28,7 @@ Route::get('/', function () {
 })->name('login');
 
 Route::post('/', [LoginController::class, 'process'])
-    -> name('login.process');
+    ->name('login.process');
 
 Route::post('/logout', function () {
     session()->forget('user');
@@ -36,46 +36,86 @@ Route::post('/logout', function () {
 })->name('logout');
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
-    -> name('dashboard');
+    ->name('dashboard');
 
 
 //Clientes
 Route::get('/clientes', [ListaClientesController::class, 'lista'])
-    -> name('clientes.lista');
+    ->name('clientes.lista');
 
 Route::get('/clientes/top5', [RankingClientesController::class, 'topClientes'])
     ->name('clientes.top');
 
+Route::post('/clientes/top5/export/pdf', [RankingClientesController::class, 'exportPdf'])
+    ->name('clientes.top.export.pdf');
+
+Route::get('/clientes/top5/export/csv', [RankingClientesController::class, 'exportCsv'])
+    ->name('clientes.top.export.csv');
+
 
 //Fornecedores
 Route::get('/fornecedores', [ListaFornecController::class, 'lista'])
-    -> name('fornecedores.lista');
+    ->name('fornecedores.lista');
 
 Route::get('/fornecedores/top5', [RankingFornecedoresController::class, 'topFornecedores'])
     ->name('fornecedores.top');
 
+Route::post('/fornecedores/top5/export/pdf', [RankingFornecedoresController::class, 'exportPdf'])
+    ->name('fornecedores.top.export.pdf');
+
+Route::get('/fornecedores/top5/export/csv', [RankingFornecedoresController::class, 'exportCsv'])
+    ->name('fornecedores.top.export.csv');
+
+
 //Artigos
 Route::get('/artigos', [ListaProdutosController::class, 'lista'])
-    -> name('artigos.lista');
+    ->name('artigos.lista');
 
 Route::get('/artigos/ranking', [RankingProdutosController::class, 'index'])
-     ->name('artigos.ranking');
+    ->name('artigos.ranking');
 
 Route::get('/artigos/stock', [StockProdutosController::class, 'index'])
-     ->name('artigos.stock');
+    ->name('artigos.stock');
 
 Route::get('/artigos/lucro', [LucroProdutosController::class, 'index'])
     ->name('artigos.lucro');
 
+Route::post('/artigos/ranking/export/pdf', [RankingProdutosController::class, 'exportPdf'])
+    ->name('artigos.ranking.export.pdf');
+
+Route::get('/artigos/ranking/export/csv', [RankingProdutosController::class, 'exportCsv'])
+    ->name('artigos.ranking.export.csv');
+
+Route::post('/produtos/stock/export/pdf', [StockProdutosController::class, 'exportPdf'])
+    ->name('produtos.stock.export.pdf');
+
+Route::get('/produtos/stock/export/csv', [StockProdutosController::class, 'exportCsv'])
+    ->name('produtos.stock.export.csv');
+
+
+// EXPORT PDF/CSV)
+Route::post('/artigos/lucro/export/pdf', [LucroProdutosController::class, 'exportPdf'])
+    ->name('artigos.lucro.export.pdf');
+
+Route::get('/artigos/lucro/export/csv', [LucroProdutosController::class, 'exportCsv'])
+    ->name('artigos.lucro.export.csv');
+
+
 //Relatorios
 Route::get('/relatorios/diario', [DiarioVendasController::class, 'index'])
-    -> name('relatorios.diario');
+    ->name('relatorios.diario');
 
 Route::get('/relatorios/pagamentos', [PagamentosController::class, 'index'])
-    -> name('relatorios.pagamento');
+    ->name('relatorios.pagamento');
 
 Route::get('/relatorios/mensal', [MensalVendasController::class, 'index'])
-    -> name('relatorios.mensal');
+    ->name('relatorios.mensal');
 
 Route::get('/relatorios/vencimento', [VencimentoController::class, 'index'])
-    -> name('relatorios.vencimento');
+    ->name('relatorios.vencimento');
+
+Route::post('/relatorios/diario/export/pdf', [DiarioVendasController::class, 'exportPdf'])
+    ->name('relatorios.diario.export.pdf');
+
+Route::get('/relatorios/diario/export/csv', [DiarioVendasController::class, 'exportCsv'])
+    ->name('relatorios.diario.export.csv');

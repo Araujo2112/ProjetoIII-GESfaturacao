@@ -9,6 +9,9 @@ use Illuminate\Support\Collection;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Str;
+
 class DiarioVendasController extends Controller
 {
     public function index(Request $request)
@@ -18,18 +21,15 @@ class DiarioVendasController extends Controller
             return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
         }
 
-        list($inicio, $fim, $periodoTexto, $periodo) = $this->definirPeriodo($request);
+        [$inicio, $fim, $periodoTexto, $periodo] = $this->definirPeriodo($request);
 
         $faturasValidas = $this->buscarFaturasValidas($token, $inicio, $fim);
-
         if ($faturasValidas === false) {
             return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
         }
 
         $detalhesFaturas = $this->buscarDetalhesFaturas($token, $faturasValidas);
-
         $vendasPorDia = $this->calcularVendasPorDia($token, $detalhesFaturas);
-
         $totais = $this->calcularTotais($vendasPorDia);
 
         $datasFormatadas = $this->formatarDatas($inicio, $fim);
@@ -52,6 +52,97 @@ class DiarioVendasController extends Controller
             'total_quantidade' => $totais['total_quantidade'],
             'total_num_vendas' => $totais['total_num_vendas'],
         ]);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $token = session('user.token');
+        if (!$token) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
+        }
+
+        $chartImg = $request->input('chart_img');
+        $modo = $request->input('modo', 'lucro'); // 'lucro' | 'vendas'
+
+        if (!$chartImg || !Str::startsWith($chartImg, 'data:image')) {
+            return back()->withErrors(['error' => 'Não foi possível obter a imagem do gráfico para exportação.']);
+        }
+
+        // reutiliza filtros (periodo/data_inicio/data_fim) vindos do POST
+        [$inicio, $fim, $periodoTexto] = $this->definirPeriodo($request);
+
+        $faturasValidas = $this->buscarFaturasValidas($token, $inicio, $fim);
+        if ($faturasValidas === false) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
+        }
+
+        $detalhesFaturas = $this->buscarDetalhesFaturas($token, $faturasValidas);
+        $vendasPorDia = $this->calcularVendasPorDia($token, $detalhesFaturas);
+        $totais = $this->calcularTotais($vendasPorDia);
+
+        $pdf = Pdf::loadView('exports.diario_vendas_pdf', [
+            'chartImg' => $chartImg,
+            'modo' => $modo,
+            'periodoTexto' => $periodoTexto,
+            'vendasPorDia' => $vendasPorDia,
+            'totais' => $totais,
+            'geradoEm' => now(),
+        ])->setPaper('a4', 'portrait');
+
+        $nome = $modo === 'vendas' ? 'relatorio_diario_vendas.pdf' : 'relatorio_diario_lucro.pdf';
+        return $pdf->download($nome);
+    }
+
+    public function exportCsv(Request $request)
+    {
+        $token = session('user.token');
+        if (!$token) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
+        }
+
+        [$inicio, $fim] = $this->definirPeriodo($request);
+
+        $faturasValidas = $this->buscarFaturasValidas($token, $inicio, $fim);
+        if ($faturasValidas === false) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
+        }
+
+        $detalhesFaturas = $this->buscarDetalhesFaturas($token, $faturasValidas);
+        $vendasPorDia = $this->calcularVendasPorDia($token, $detalhesFaturas);
+        $totais = $this->calcularTotais($vendasPorDia);
+
+        $filename = 'relatorio_diario.csv';
+
+        return response()->streamDownload(function () use ($vendasPorDia, $totais) {
+            $out = fopen('php://output', 'w');
+            echo "\xEF\xBB\xBF";
+
+            fputcsv($out, ['Dia', 'Vendas c/IVA', 'Vendas s/IVA', 'Custos', 'Lucro', 'Quantidade', 'Nº Vendas'], ';');
+
+            foreach ($vendasPorDia as $dados) {
+                fputcsv($out, [
+                    $dados['dia'],
+                    number_format((float)($dados['vendas_com_iva'] ?? 0), 2, ',', '.'),
+                    number_format((float)($dados['vendas_sem_iva'] ?? 0), 2, ',', '.'),
+                    number_format((float)($dados['custos'] ?? 0), 2, ',', '.'),
+                    number_format((float)($dados['lucro'] ?? 0), 2, ',', '.'),
+                    (string)($dados['quantidade'] ?? 0),
+                    (string)($dados['num_vendas'] ?? 0),
+                ], ';');
+            }
+
+            fputcsv($out, [
+                'TOTAL',
+                number_format((float)$totais['total_vendas_iva'], 2, ',', '.'),
+                number_format((float)$totais['total_vendas'], 2, ',', '.'),
+                number_format((float)$totais['total_custos'], 2, ',', '.'),
+                number_format((float)$totais['total_lucro'], 2, ',', '.'),
+                (string)$totais['total_quantidade'],
+                (string)$totais['total_num_vendas'],
+            ], ';');
+
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     private function calcularTotais(Collection $vendasPorDia): array
@@ -118,20 +209,15 @@ class DiarioVendasController extends Controller
     private function buscarFaturasValidas(string $token, string $inicio, string $fim): Collection|bool
     {
         $faturas = $this->listarTodasFaturasSemFiltro($token);
-        if ($faturas === false) {
-            return false;
-        }
+        if ($faturas === false) return false;
 
         return $faturas->filter(function ($fatura) use ($inicio, $fim) {
             $statusId = $fatura['status']['id'] ?? 0;
-            if ($statusId != 2) {
-                return false;
-            }
+            if ($statusId != 2) return false;
             $dataFatura = substr($fatura['date'], 0, 10);
             return $dataFatura >= $inicio && $dataFatura <= $fim;
         });
     }
-
 
     private function buscarDetalhesFaturas(string $token, Collection $faturasValidas): Collection
     {
@@ -154,10 +240,7 @@ class DiarioVendasController extends Controller
 
                     if ($tipo) {
                         $url = "https://api.gesfaturacao.pt/api/v1.0.4/sales/{$tipo}/{$id}";
-                        $pool->withHeaders([
-                            'Authorization' => $token,
-                            'Accept' => 'application/json',
-                        ])->get($url);
+                        $pool->withHeaders(['Authorization' => $token, 'Accept' => 'application/json'])->get($url);
                     }
                 }
             });
@@ -165,10 +248,6 @@ class DiarioVendasController extends Controller
             foreach ($responses as $response) {
                 if ($response instanceof \Illuminate\Http\Client\Response && $response->successful()) {
                     $detalhes->push($response->json('data'));
-                } elseif ($response instanceof \Exception) {
-                    \Log::error('Erro na requisição: Exceção - ' . $response->getMessage());
-                } else {
-                    \Log::error('Erro na requisição: ' . (method_exists($response, 'status') ? $response->status() : 'Desconhecido') . ' - ' . (method_exists($response, 'body') ? $response->body() : ''));
                 }
             }
         });
@@ -176,12 +255,11 @@ class DiarioVendasController extends Controller
         return $detalhes;
     }
 
-
     private function calcularVendasPorDia(string $token, Collection $detalhesFaturas): Collection
     {
         $produtosCache = [];
 
-        return $detalhesFaturas->groupBy(fn ($fatura) => substr($fatura['date'], 0, 10))
+        return $detalhesFaturas->groupBy(fn ($f) => substr($f['date'], 0, 10))
             ->map(function ($faturasDia, $dia) use ($token, &$produtosCache) {
                 $vendasIVA = $faturasDia->sum(fn($f) => floatval($f['grossTotal'] ?? 0));
                 $vendas = $faturasDia->sum(fn($f) => floatval($f['netTotal'] ?? 0));
@@ -202,26 +280,21 @@ class DiarioVendasController extends Controller
                                     'Accept' => 'application/json',
                                 ])->get("https://api.gesfaturacao.pt/api/v1.0.4/products/{$prodId}");
 
-                                if ($response->successful()) {
-                                    $produto = $response->json();
-                                    $produtosCache[$prodId] = floatval($produto['data']['initialPrice'] ?? 0);
-                                } else {
-                                    $produtosCache[$prodId] = 0;
-                                }
+                                $produtosCache[$prodId] = $response->successful()
+                                    ? floatval($response->json('data.initialPrice') ?? 0)
+                                    : 0;
                             }
                             $custos += $produtosCache[$prodId] * $quantLine;
                         }
                     }
                 }
 
-                $lucro = $vendas - $custos;
-
                 return [
                     'dia' => $dia,
                     'vendas_com_iva' => $vendasIVA,
                     'vendas_sem_iva' => $vendas,
                     'custos' => $custos,
-                    'lucro' => $lucro,
+                    'lucro' => $vendas - $custos,
                     'quantidade' => $quantidade,
                     'num_vendas' => $numVendas,
                 ];
@@ -232,9 +305,7 @@ class DiarioVendasController extends Controller
     {
         $period = CarbonPeriod::create($inicio, $fim);
         $datas = [];
-        foreach ($period as $data) {
-            $datas[] = $data->format('d-m');
-        }
+        foreach ($period as $data) $datas[] = $data->format('d-m');
         return $datas;
     }
 
@@ -243,6 +314,7 @@ class DiarioVendasController extends Controller
         $period = CarbonPeriod::create($inicio, $fim);
         $dados = $vendasPorDia->toArray();
         $valores = [];
+
         foreach ($period as $data) {
             $chave = $data->format('Y-m-d');
             $valores[] = isset($dados[$chave]) ? round($dados[$chave]['vendas_com_iva'], 2) : 0;
@@ -252,18 +324,16 @@ class DiarioVendasController extends Controller
 
     private function extrairLucroPorDia(Collection $vendasPorDia, string $inicio, string $fim): array
     {
-        $period  = CarbonPeriod::create($inicio, $fim);
-        $dados   = $vendasPorDia->toArray();
+        $period = CarbonPeriod::create($inicio, $fim);
+        $dados = $vendasPorDia->toArray();
         $valores = [];
 
         foreach ($period as $data) {
             $chave = $data->format('Y-m-d');
             $valores[] = isset($dados[$chave]) ? round($dados[$chave]['lucro'], 2) : 0;
         }
-
         return $valores;
     }
-
 
     private function listarTodasFaturasSemFiltro(string $token): Collection|bool
     {
@@ -276,18 +346,10 @@ class DiarioVendasController extends Controller
         $todasFaturas = [];
 
         foreach ($endpoints as $endpoint) {
-            $response = Http::withHeaders([
-                'Authorization' => $token,
-                'Accept' => 'application/json',
-            ])->get($endpoint);
+            $response = Http::withHeaders(['Authorization' => $token, 'Accept' => 'application/json'])->get($endpoint);
+            if (!$response->successful()) return false;
 
-            if (!$response->successful()) {
-                return false;
-            }
-
-            $data = $response->json();
-            $faturas = $data['data'] ?? [];
-            $todasFaturas = array_merge($todasFaturas, $faturas);
+            $todasFaturas = array_merge($todasFaturas, $response->json('data') ?? []);
         }
 
         return collect($todasFaturas);
