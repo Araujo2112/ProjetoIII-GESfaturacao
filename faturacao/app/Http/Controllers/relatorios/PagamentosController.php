@@ -9,6 +9,9 @@ use Illuminate\Support\Collection;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Str;
+
 class PagamentosController extends Controller
 {
     public function index(Request $request)
@@ -18,34 +21,131 @@ class PagamentosController extends Controller
             return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
         }
 
-        list($inicio, $fim, $periodoTexto, $periodo) = $this->definirPeriodo($request);
+        [$inicio, $fim, $periodoTexto, $periodo] = $this->definirPeriodo($request);
 
         $recibosValidos = $this->buscarRecibosValidos($token, $inicio, $fim);
-
         if ($recibosValidos === false) {
             return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
         }
 
         $detalhesRecibos = $this->buscarDetalhesRecibos($token, $recibosValidos);
 
-        $resultadoCalculo = $this->calcularDadosRecibos($token, $detalhesRecibos);
-        $vendasPorRecibo = $resultadoCalculo['recibos'];
-
+        $resultadoCalculo = $this->calcularDadosRecibos($detalhesRecibos);
+        $pagamentos = $resultadoCalculo['recibos'];
         $contagemMetodosPagamento = $resultadoCalculo['contagem_metodos_pagamento'];
         $contagemPagamentosPorDia = $resultadoCalculo['contagem_pagamentos_por_dia'];
 
-        $datasFormatadas = $this->formatarDatas($inicio, $fim);
+        // Datas para o gráfico (labels + keys reais Y-m-d)
+        [$datasFormatadas, $datasYMD] = $this->formatarDatas($inicio, $fim);
 
         return view('relatorios.pagamentos', [
-            'pagamentos' => $vendasPorRecibo,
+            'pagamentos' => $pagamentos,
             'contagemMetodosPagamento' => $contagemMetodosPagamento,
             'contagemPagamentosPorDia' => $contagemPagamentosPorDia,
             'datasFormatadas' => $datasFormatadas,
+            'datasYMD' => $datasYMD,
             'periodoTexto' => $periodoTexto,
             'periodo' => $periodo,
+            'inicio' => $inicio,
+            'fim' => $fim,
         ]);
-
     }
+
+    /**
+     * EXPORT PDF (com o gráfico selecionado: evolucao | top)
+     */
+    public function exportPdf(Request $request)
+    {
+        $token = session('user.token');
+        if (!$token) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
+        }
+
+        $chartImg = $request->input('chart_img');
+        $modo = $request->input('modo', 'evolucao'); // evolucao | top
+
+        if (!$chartImg || !Str::startsWith($chartImg, 'data:image')) {
+            return back()->withErrors(['error' => 'Não foi possível obter a imagem do gráfico para exportação.']);
+        }
+
+        // Mesmos filtros do index (GET params vêm no POST também via query string ou inputs hidden, mas aqui reutilizamos o Request)
+        [$inicio, $fim, $periodoTexto, $periodo] = $this->definirPeriodo($request);
+
+        $recibosValidos = $this->buscarRecibosValidos($token, $inicio, $fim);
+        if ($recibosValidos === false) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
+        }
+
+        $detalhesRecibos = $this->buscarDetalhesRecibos($token, $recibosValidos);
+
+        $resultadoCalculo = $this->calcularDadosRecibos($detalhesRecibos);
+
+        $pdf = Pdf::loadView('exports.pagamentos_pdf', [
+            'chartImg' => $chartImg,
+            'modo' => $modo,
+            'periodoTexto' => $periodoTexto,
+            'pagamentos' => $resultadoCalculo['recibos'],
+            'contagemMetodosPagamento' => $resultadoCalculo['contagem_metodos_pagamento'],
+            'contagemPagamentosPorDia' => $resultadoCalculo['contagem_pagamentos_por_dia'],
+            'geradoEm' => now(),
+        ])->setPaper('a4', 'portrait');
+
+        $nome = $modo === 'top' ? 'relatorio_pagamentos_top.pdf' : 'relatorio_pagamentos_evolucao.pdf';
+        return $pdf->download($nome);
+    }
+
+    /**
+     * EXPORT CSV
+     */
+    public function exportCsv(Request $request)
+    {
+        $token = session('user.token');
+        if (!$token) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
+        }
+
+        [$inicio, $fim, $periodoTexto, $periodo] = $this->definirPeriodo($request);
+
+        $recibosValidos = $this->buscarRecibosValidos($token, $inicio, $fim);
+        if ($recibosValidos === false) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
+        }
+
+        $detalhesRecibos = $this->buscarDetalhesRecibos($token, $recibosValidos);
+
+        $resultadoCalculo = $this->calcularDadosRecibos($detalhesRecibos);
+        $pagamentos = $resultadoCalculo['recibos'];
+
+        $filename = 'relatorio_pagamentos.csv';
+
+        return response()->streamDownload(function () use ($pagamentos) {
+            $out = fopen('php://output', 'w');
+
+            // BOM UTF-8 (Excel PT)
+            echo "\xEF\xBB\xBF";
+
+            // separador ;
+            fputcsv($out, ['Data', 'Número Recibo', 'Tipo de Pagamento', 'Preço c/IVA', 'Preço s/IVA'], ';');
+
+            foreach ($pagamentos as $p) {
+                fputcsv($out, [
+                    $p['data'] ?? '',
+                    $p['numero_recibo'] ?? '',
+                    $p['metodo_pagamento'] ?? '',
+                    number_format((float)($p['preco_com_iva'] ?? 0), 2, ',', '.'),
+                    number_format((float)($p['preco_sem_iva'] ?? 0), 2, ',', '.'),
+                ], ';');
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    // =========================
+    // LÓGICA EXISTENTE (ajustada)
+    // =========================
 
     private function definirPeriodo(Request $request)
     {
@@ -111,7 +211,7 @@ class PagamentosController extends Controller
         });
     }
 
-        private function listarTodosRecibosSemFiltro(string $token): Collection|bool
+    private function listarTodosRecibosSemFiltro(string $token): Collection|bool
     {
         $endpoints = [
             'https://api.gesfaturacao.pt/api/v1.0.4/sales/receipt-invoices',
@@ -180,14 +280,18 @@ class PagamentosController extends Controller
         return $detalhes;
     }
 
-
-    private function calcularDadosRecibos(string $token, Collection $detalhesFaturas): array
+    /**
+     * Aqui corrigimos para contagemPorDia ter chave Y-m-d (não datetime completo)
+     */
+    private function calcularDadosRecibos(Collection $detalhesFaturas): array
     {
         $contagemMetodos = [];
         $contagemPorDia = [];
 
         $recibos = $detalhesFaturas->map(function ($fatura) use (&$contagemMetodos, &$contagemPorDia) {
-            $data = $fatura['date'] ?? null;
+            $dataCompleta = $fatura['date'] ?? null;
+            $dataYMD = $dataCompleta ? substr($dataCompleta, 0, 10) : null;
+
             $metodo = $fatura['paymentMethod']['name'] ?? 'Desconhecido';
             $numero = $fatura['number'] ?? '';
             $prefix = strtoupper(substr($numero, 0, 2));
@@ -204,10 +308,12 @@ class PagamentosController extends Controller
             }
 
             $contagemMetodos[$metodo] = ($contagemMetodos[$metodo] ?? 0) + 1;
-            $contagemPorDia[$data] = ($contagemPorDia[$data] ?? 0) + 1;
+            if ($dataYMD) {
+                $contagemPorDia[$dataYMD] = ($contagemPorDia[$dataYMD] ?? 0) + 1;
+            }
 
             return [
-                'data' => $data,
+                'data' => $dataYMD,
                 'metodo_pagamento' => $metodo,
                 'numero_recibo' => $numero,
                 'preco_com_iva' => $precoComIva,
@@ -222,15 +328,20 @@ class PagamentosController extends Controller
         ];
     }
 
-
-
+    /**
+     * devolve [labels d-m, keys Y-m-d]
+     */
     private function formatarDatas(string $inicio, string $fim): array
     {
         $period = CarbonPeriod::create($inicio, $fim);
-        $datas = [];
+        $labels = [];
+        $keys = [];
+
         foreach ($period as $data) {
-            $datas[] = $data->format('d-m');
+            $labels[] = $data->format('d-m');
+            $keys[] = $data->format('Y-m-d');
         }
-        return $datas;
+
+        return [$labels, $keys];
     }
 }

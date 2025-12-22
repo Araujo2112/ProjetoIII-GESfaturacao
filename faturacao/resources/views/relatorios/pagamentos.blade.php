@@ -25,28 +25,37 @@
                 <button type="submit" class="btn btn-primary" style="width:auto; max-width:150px; white-space:nowrap;">Aplicar Filtro</button>
             </form>
 
-
             {{-- Gráfico/Tabela --}}
             @if($pagamentos->isEmpty())
                 <div class="text-center py-5">
-                    <h4 class="fw-semibold mt-4 mb-2">Sem dados de vendas para o período selecionado</h4>
-                    <div class="text-muted">
-                        Tente ajustar o filtro para encontrar dados.
-                    </div>
+                    <h4 class="fw-semibold mt-4 mb-2">Sem dados de pagamentos para o período selecionado</h4>
+                    <div class="text-muted">Tente ajustar o filtro para encontrar dados.</div>
                 </div>
             @else
-
                 <div class="row mt-5">
                     <div class="bg-light px-3 py-2 rounded border d-flex align-items-center justify-content-between">
                         <div>
                             <i class="far fa-calendar-alt me-2"></i>
-                            {{ $periodoTexto ?? 'Mês atual' }}
+                            {{ $periodoTexto ?? 'Período' }}
                         </div>
-                        <div class="btn-group" role="group" aria-label="Botões gráfico">
-                            <button id="btnEvolucao" class="btn btn-outline-primary active">Evolução</button>
-                            <button id="btnTop" class="btn btn-outline-primary">Top</button>
+
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="btn-group" role="group" aria-label="Botões gráfico">
+                                <button type="button" id="btnEvolucao" class="btn btn-outline-primary">Evolução</button>
+                                <button type="button" id="btnTop" class="btn btn-outline-primary">Top</button>
+                            </div>
+
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="exportPagamentosPdf()">
+                                Exportar PDF
+                            </button>
+
+                            <a class="btn btn-outline-secondary btn-sm"
+                               href="{{ route('relatorios.pagamentos.export.csv', request()->query()) }}">
+                                Exportar CSV
+                            </a>
                         </div>
                     </div>
+
                     <div class="col-12">
                         <div id="evolucaoChart"></div>
                         <div id="topChart"></div>
@@ -55,7 +64,6 @@
 
                 <div class="row d-flex align-items-stretch mt-4">
                     <div style="overflow-x:auto;">
-
                         <table class="table table-sm table-striped table-bordered table-hover">
                             <thead>
                                 <tr>
@@ -77,25 +85,55 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="4" class="text-center">Sem dados para o período selecionado</td>
+                                        <td colspan="5" class="text-center">Sem dados para o período selecionado</td>
                                     </tr>
                                 @endforelse
                             </tbody>
                         </table>
-
                     </div>
                 </div>
             @endif
-
         </div>
     </div>
 
     <script>
-        window.pagamentosDatas = @json($datasFormatadas);
-        window.pagamentosQuantidadePorDia = @json($contagemPagamentosPorDia);
-        window.contagemMetodosPagamento = @json($contagemMetodosPagamento);
-    </script>
+        window.pagamentosDatas = @json($datasFormatadas ?? []);
+        window.pagamentosDatasKeys = @json($datasYMD ?? []);
+        window.pagamentosQuantidadePorDia = @json($contagemPagamentosPorDia ?? []);
+        window.contagemMetodosPagamento = @json($contagemMetodosPagamento ?? []);
 
+        window.csrfToken = @json(csrf_token());
+        window.pagamentosModo = 'evolucao'; // default
+        window.pagamentosChart = null;
+
+        async function exportPagamentosPdf() {
+            try {
+                if (!window.pagamentosChart) {
+                    alert('O gráfico ainda não está pronto. Tenta novamente em 1-2 segundos.');
+                    return;
+                }
+
+                const { imgURI } = await window.pagamentosChart.dataURI();
+                const modo = window.pagamentosModo || 'evolucao';
+
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = "{{ route('relatorios.pagamentos.export.pdf', request()->query()) }}";
+
+                form.innerHTML = `
+                    <input type="hidden" name="_token" value="${window.csrfToken}">
+                    <input type="hidden" name="chart_img" value="${imgURI}">
+                    <input type="hidden" name="modo" value="${modo}">
+                `;
+
+                document.body.appendChild(form);
+                form.submit();
+            } catch (e) {
+                console.error(e);
+                alert('Erro ao exportar PDF. Verifica a consola.');
+            }
+        }
+    </script>
 @endsection
 
 @push('scripts')

@@ -7,7 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Collection;
 use Carbon\Carbon;
-use Carbon\CarbonPeriod;
+
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Str;
 
 class MensalVendasController extends Controller
 {
@@ -18,7 +20,7 @@ class MensalVendasController extends Controller
             return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
         }
 
-        list($inicio, $fim, $periodoTexto, $periodo) = $this->definirPeriodo($request);
+        [$inicio, $fim, $periodoTexto, $periodo] = $this->definirPeriodo($request);
 
         $faturasValidas = $this->buscarFaturasValidas($token, $inicio, $fim);
 
@@ -100,6 +102,7 @@ class MensalVendasController extends Controller
                 $fim    = Carbon::create($anoAtual, 12, 31)->format('Y-m-d');
                 $periodoTexto = "Ano atual: $anoAtual";
                 break;
+
             case 'ano_anterior':
                 $inicio = Carbon::create($anoAnterior, 1, 1)->format('Y-m-d');
                 $fim    = Carbon::create($anoAnterior, 12, 31)->format('Y-m-d');
@@ -109,7 +112,6 @@ class MensalVendasController extends Controller
 
         return [$inicio, $fim, $periodoTexto, $periodo];
     }
-
 
     private function buscarFaturasValidas(string $token, string $inicio, string $fim): Collection|bool
     {
@@ -175,7 +177,8 @@ class MensalVendasController extends Controller
     {
         $produtosCache = [];
 
-        return $detalhesFaturas->groupBy(fn ($fatura) => substr($fatura['date'], 0, 7)) // Y-m
+        return $detalhesFaturas
+            ->groupBy(fn($fatura) => substr($fatura['date'], 0, 7)) // Y-m
             ->map(function ($faturasMes, $mes) use ($token, &$produtosCache) {
                 $vendasIVA = $faturasMes->sum(fn($f) => floatval($f['grossTotal'] ?? 0));
                 $vendas = $faturasMes->sum(fn($f) => floatval($f['netTotal'] ?? 0));
@@ -219,14 +222,15 @@ class MensalVendasController extends Controller
                     'quantidade' => $quantidade,
                     'num_vendas' => $numVendas,
                 ];
-            })->sortKeys();
+            })
+            ->sortKeys();
     }
 
     private function formatarMesesAno(int $ano): array
     {
         $meses = [];
         for ($m = 1; $m <= 12; $m++) {
-            $meses[] = Carbon::create($ano, $m, 1)->translatedFormat('F'); // “janeiro”, “fevereiro”, ...
+            $meses[] = Carbon::create($ano, $m, 1)->translatedFormat('F');
         }
         return $meses;
     }
@@ -270,5 +274,104 @@ class MensalVendasController extends Controller
         }
 
         return collect($todasFaturas);
+    }
+
+    // ============================
+    // EXPORT PDF
+    // ============================
+    public function exportPdf(Request $request)
+    {
+        $token = session('user.token');
+        if (!$token) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
+        }
+
+        $chartImg = $request->input('chart_img');
+        $modo = $request->input('modo', 'lucro'); // 'lucro' | 'vendas'
+
+        if (!$chartImg || !Str::startsWith($chartImg, 'data:image')) {
+            return back()->withErrors(['error' => 'Não foi possível obter a imagem do gráfico para exportação.']);
+        }
+
+        [$inicio, $fim, $periodoTexto, $periodo] = $this->definirPeriodo($request);
+
+        $faturasValidas = $this->buscarFaturasValidas($token, $inicio, $fim);
+        if ($faturasValidas === false) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
+        }
+
+        $detalhesFaturas = $this->buscarDetalhesFaturas($token, $faturasValidas);
+        $vendasPorMes = $this->calcularVendasPorMes($token, $detalhesFaturas);
+        $totais = $this->calcularTotais($vendasPorMes);
+
+        $pdf = Pdf::loadView('exports.mensal_vendas_pdf', [
+            'chartImg' => $chartImg,
+            'modo' => $modo,
+            'periodoTexto' => $periodoTexto,
+            'vendasPorMes' => $vendasPorMes,
+            'totais' => $totais,
+            'geradoEm' => now(),
+        ])->setPaper('a4', 'portrait');
+
+        $nome = $modo === 'vendas' ? 'relatorio_mensal_vendas.pdf' : 'relatorio_mensal_lucro.pdf';
+        return $pdf->download($nome);
+    }
+
+    // ============================
+    // EXPORT CSV
+    // ============================
+    public function exportCsv(Request $request)
+    {
+        $token = session('user.token');
+        if (!$token) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
+        }
+
+        [$inicio, $fim, $periodoTexto, $periodo] = $this->definirPeriodo($request);
+
+        $faturasValidas = $this->buscarFaturasValidas($token, $inicio, $fim);
+        if ($faturasValidas === false) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
+        }
+
+        $detalhesFaturas = $this->buscarDetalhesFaturas($token, $faturasValidas);
+        $vendasPorMes = $this->calcularVendasPorMes($token, $detalhesFaturas);
+        $totais = $this->calcularTotais($vendasPorMes);
+
+        $filename = 'relatorio_mensal.csv';
+
+        return response()->streamDownload(function () use ($vendasPorMes, $totais) {
+            $out = fopen('php://output', 'w');
+
+            echo "\xEF\xBB\xBF";
+
+            fputcsv($out, ['Mês', 'Vendas c/IVA', 'Vendas s/IVA', 'Custos', 'Lucro', 'Quantidade', 'Nº Vendas'], ';');
+
+            foreach ($vendasPorMes as $dados) {
+                fputcsv($out, [
+                    $dados['mes'],
+                    number_format((float)($dados['vendas_com_iva'] ?? 0), 2, ',', '.'),
+                    number_format((float)($dados['vendas_sem_iva'] ?? 0), 2, ',', '.'),
+                    number_format((float)($dados['custos'] ?? 0), 2, ',', '.'),
+                    number_format((float)($dados['lucro'] ?? 0), 2, ',', '.'),
+                    (string)($dados['quantidade'] ?? 0),
+                    (string)($dados['num_vendas'] ?? 0),
+                ], ';');
+            }
+
+            fputcsv($out, [
+                'TOTAL',
+                number_format((float)($totais['total_vendas_iva'] ?? 0), 2, ',', '.'),
+                number_format((float)($totais['total_vendas'] ?? 0), 2, ',', '.'),
+                number_format((float)($totais['total_custos'] ?? 0), 2, ',', '.'),
+                number_format((float)($totais['total_lucro'] ?? 0), 2, ',', '.'),
+                (string)($totais['total_quantidade'] ?? 0),
+                (string)($totais['total_num_vendas'] ?? 0),
+            ], ';');
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 }

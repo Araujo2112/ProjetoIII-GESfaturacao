@@ -119,3 +119,15 @@ Route::post('/relatorios/diario/export/pdf', [DiarioVendasController::class, 'ex
 
 Route::get('/relatorios/diario/export/csv', [DiarioVendasController::class, 'exportCsv'])
     ->name('relatorios.diario.export.csv');
+
+Route::post('/relatorios/mensal/export/pdf', [MensalVendasController::class, 'exportPdf'])
+    ->name('relatorios.mensal.export.pdf');
+
+Route::get('/relatorios/mensal/export/csv', [MensalVendasController::class, 'exportCsv'])
+    ->name('relatorios.mensal.export.csv');
+
+Route::post('/relatorios/pagamentos/export/pdf', [PagamentosController::class, 'exportPdf'])
+    ->name('relatorios.pagamentos.export.pdf');
+
+Route::get('/relatorios/pagamentos/export/csv', [PagamentosController::class, 'exportCsv'])
+    ->name('relatorios.pagamentos.export.csv');

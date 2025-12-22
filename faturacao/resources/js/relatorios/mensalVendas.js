@@ -1,79 +1,72 @@
 document.addEventListener('DOMContentLoaded', function () {
-    const periodoSelect = document.getElementById('periodoSelect');
-    const camposPersonalizado = document.getElementById('camposPersonalizado');
     const btnVendas = document.getElementById('btnVendas');
     const btnLucro = document.getElementById('btnLucro');
-    let chart;
 
-    function toggleCamposPersonalizado() {
-        if (periodoSelect.value === 'personalizado') {
-            camposPersonalizado.classList.remove('esconder');
+    // modo atual (para export)
+    window.mensalModo = 'lucro';
+
+    function setActiveButton(modo) {
+        if (!btnVendas || !btnLucro) return;
+
+        if (modo === 'vendas') {
+            btnVendas.classList.add('btn-primary');
+            btnVendas.classList.remove('btn-outline-primary');
+            btnLucro.classList.remove('btn-primary');
+            btnLucro.classList.add('btn-outline-primary');
         } else {
-            camposPersonalizado.classList.add('esconder');
+            btnLucro.classList.add('btn-primary');
+            btnLucro.classList.remove('btn-outline-primary');
+            btnVendas.classList.remove('btn-primary');
+            btnVendas.classList.add('btn-outline-primary');
         }
     }
-    toggleCamposPersonalizado();
-    periodoSelect.addEventListener('change', toggleCamposPersonalizado);
 
-    function renderChart(type) {
-        const isVendas = type === 'vendas';
+    function renderChart(modo) {
+        window.mensalModo = modo;
 
-        const data  = isVendas ? window.vendasValores : window.lucroValores;
-        const nomes = isVendas ? window.vendasMeses   : window.lucroMeses;
-        const name  = isVendas ? 'Vendas c/ IVA (€)'  : 'Lucro (€)';
+        const isVendas = modo === 'vendas';
+        const data  = isVendas ? (window.vendasValores || []) : (window.lucroValores || []);
+        const nomes = isVendas ? (window.vendasMeses || [])   : (window.lucroMeses || []);
+        const name  = isVendas ? 'Vendas c/ IVA (€)'          : 'Lucro (€)';
 
-        const yFormatter = value =>
-            value.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-        const tooltipFormatter = yFormatter;
+        const yFormatter = (value) =>
+            Number(value).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
         const options = {
             chart: {
                 type: 'line',
                 height: 350,
                 toolbar: { show: true },
-                zoom: {
-                    enabled: true,
-                    type: 'x',
-                    autoScaleYaxis: true
-                }
+                zoom: { enabled: true, type: 'x', autoScaleYaxis: true }
             },
             dataLabels: { enabled: false },
-            series: [{
-                name,
-                data
-            }],
+            series: [{ name, data }],
             xaxis: { categories: nomes },
             yaxis: { labels: { formatter: yFormatter } },
-            tooltip: { y: { formatter: tooltipFormatter } },
+            tooltip: { y: { formatter: yFormatter } },
             colors: ['#2980FF'],
         };
 
-        if (chart) chart.destroy();
-        chart = new ApexCharts(document.querySelector("#vendasChart"), options);
-        chart.render();
+        if (window.mensalChart) {
+            try { window.mensalChart.destroy(); } catch (e) {}
+        }
+
+        const el = document.querySelector("#vendasChart");
+        if (!el) return;
+
+        window.mensalChart = new ApexCharts(el, options);
+        window.mensalChart.render();
+
+        setActiveButton(modo);
     }
 
+    // default: lucro
     if (window.lucroValores && window.lucroValores.length > 0) {
         renderChart('lucro');
-        btnLucro.classList.add('btn-primary');
-        btnLucro.classList.remove('btn-outline-primary');
-        btnVendas.classList.remove('btn-primary');
-        btnVendas.classList.add('btn-outline-primary');
+    } else {
+        setActiveButton('lucro');
     }
 
-    btnVendas.addEventListener('click', function () {
-        renderChart('vendas');
-        btnVendas.classList.add('btn-primary');
-        btnVendas.classList.remove('btn-outline-primary');
-        btnLucro.classList.remove('btn-primary');
-        btnLucro.classList.add('btn-outline-primary');
-    });
-
-    btnLucro.addEventListener('click', function () {
-        renderChart('lucro');
-        btnLucro.classList.add('btn-primary');
-        btnLucro.classList.remove('btn-outline-primary');
-        btnVendas.classList.remove('btn-primary');
-        btnVendas.classList.add('btn-outline-primary');
-    });
+    if (btnVendas) btnVendas.addEventListener('click', () => renderChart('vendas'));
+    if (btnLucro) btnLucro.addEventListener('click', () => renderChart('lucro'));
 });
