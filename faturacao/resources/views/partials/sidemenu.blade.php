@@ -50,35 +50,10 @@
                 <button type="button"
                         class="btn btn-dark nav-link text-white w-100 dropdown-toggle d-flex justify-content-between align-items-center text-start"
                         data-bs-toggle="dropdown" aria-expanded="false">
-                    Faturas
-                </button>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="#">Listagem</a></li>
-                    <li><a class="dropdown-item" href="#">A vencer (30 dias)</a></li>
-                </ul>
-            </div>
-
-            <div class="btn-group dropend w-100 mb-2">
-                <button type="button"
-                        class="btn btn-dark nav-link text-white w-100 dropdown-toggle d-flex justify-content-between align-items-center text-start"
-                        data-bs-toggle="dropdown" aria-expanded="false">
-                    Compras
-                </button>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="#">Listagem</a></li>
-                    <li><a class="dropdown-item" href="#">A vencer (30 dias)</a></li>
-                </ul>
-            </div>
-
-            <div class="btn-group dropend w-100 mb-2">
-                <button type="button"
-                        class="btn btn-dark nav-link text-white w-100 dropdown-toggle d-flex justify-content-between align-items-center text-start"
-                        data-bs-toggle="dropdown" aria-expanded="false">
                     Relatórios
                 </button>
                 <ul class="dropdown-menu">
                     <li><a class="dropdown-item" href="{{ route('relatorios.vencimento') }}">Cashflow - Vencimentos</a></li>
-                    <li><a class="dropdown-item" href="#">Por Hora</a></li>
                     <li><a class="dropdown-item" href="{{ route('relatorios.diario') }}">Diário</a></li>
                     <li><a class="dropdown-item" href="{{ route('relatorios.pagamento') }}">Pagamentos</a></li>
                     <li><a class="dropdown-item" href="#">Dias da semana</a></li>
