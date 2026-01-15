@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const btnVendas = document.getElementById('btnVendas');
     const btnLucro = document.getElementById('btnLucro');
 
-    // modo atual (para export)
     window.mensalModo = 'lucro';
 
     function setActiveButton(modo) {
@@ -60,7 +59,6 @@ document.addEventListener('DOMContentLoaded', function () {
         setActiveButton(modo);
     }
 
-    // default: lucro
     if (window.lucroValores && window.lucroValores.length > 0) {
         renderChart('lucro');
     } else {

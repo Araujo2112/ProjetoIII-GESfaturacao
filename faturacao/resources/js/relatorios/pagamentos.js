@@ -11,8 +11,10 @@ document.addEventListener('DOMContentLoaded', function () {
     let evolucaoChart = null;
     let topChart = null;
 
+    if (topChartDiv) topChartDiv.style.display = 'none';
+
     function toggleCamposPersonalizado() {
-        if (periodoSelect.value === 'personalizado') {
+        if (periodoSelect && periodoSelect.value === 'personalizado') {
             camposPersonalizado.classList.remove('esconder');
             camposPersonalizado.style.display = 'flex';
         } else {
@@ -21,7 +23,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
     toggleCamposPersonalizado();
-    periodoSelect.addEventListener('change', toggleCamposPersonalizado);
+    if (periodoSelect) periodoSelect.addEventListener('change', toggleCamposPersonalizado);
 
     function renderEvolucaoChart() {
         const quantidadePorDia = window.pagamentosQuantidadePorDia || {};
@@ -49,7 +51,6 @@ document.addEventListener('DOMContentLoaded', function () {
         evolucaoChart = new ApexCharts(evolucaoChartDiv, options);
         evolucaoChart.render();
 
-        // para export
         window.pagamentosChart = evolucaoChart;
     }
 
@@ -70,11 +71,12 @@ document.addEventListener('DOMContentLoaded', function () {
         topChart = new ApexCharts(topChartDiv, options);
         topChart.render();
 
-        // para export
         window.pagamentosChart = topChart;
     }
 
     function setActiveChart(chartName) {
+        if (!btnEvolucao || !btnTop || !evolucaoChartDiv || !topChartDiv) return;
+
         if (chartName === 'evolucao') {
             evolucaoChartDiv.style.display = 'block';
             topChartDiv.style.display = 'none';
@@ -103,6 +105,5 @@ document.addEventListener('DOMContentLoaded', function () {
     btnEvolucao.addEventListener('click', () => setActiveChart('evolucao'));
     btnTop.addEventListener('click', () => setActiveChart('top'));
 
-    // default
     setActiveChart('evolucao');
 });
