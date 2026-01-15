@@ -21,7 +21,6 @@
                 </div>
             </div>
 
-            {{-- Filtro --}}
             <form method="GET" class="d-flex align-items-center mb-4" style="gap:1rem;" id="filtroForm">
                 <label class="mb-0 fw-semibold">Período:</label>
                 <select name="periodo" id="periodoSelect" class="form-select" style="width:auto;">
@@ -31,7 +30,6 @@
                 <button type="submit" class="btn btn-primary" style="width:auto; max-width:150px; white-space:nowrap;">Aplicar Filtro</button>
             </form>
 
-            {{-- Gráfico/Tabela --}}
             @if($vendasPorMes->isEmpty())
                 <div class="text-center py-5">
                     <h4 class="fw-semibold mt-4 mb-2">Sem dados de vendas para o período selecionado</h4>
@@ -127,19 +125,32 @@
                 form.method = 'POST';
                 form.action = @json(route('relatorios.mensal.export.pdf'));
 
-                // manter o filtro atual (periodo=ano_atual/ano_anterior)
-                const params = new URLSearchParams(window.location.search);
-                let extraInputs = '';
-                for (const [k, v] of params.entries()) {
-                    extraInputs += `<input type="hidden" name="${k}" value="${v}">`;
-                }
+                const t = document.createElement('input');
+                t.type = 'hidden';
+                t.name = '_token';
+                t.value = window.csrfToken;
+                form.appendChild(t);
 
-                form.innerHTML = `
-                    <input type="hidden" name="_token" value="${window.csrfToken}">
-                    <input type="hidden" name="chart_img" value="${imgURI}">
-                    <input type="hidden" name="modo" value="${modo}">
-                    ${extraInputs}
-                `;
+                const ci = document.createElement('input');
+                ci.type = 'hidden';
+                ci.name = 'chart_img';
+                ci.value = imgURI;
+                form.appendChild(ci);
+
+                const mo = document.createElement('input');
+                mo.type = 'hidden';
+                mo.name = 'modo';
+                mo.value = modo;
+                form.appendChild(mo);
+
+                const params = new URLSearchParams(window.location.search);
+                for (const [k, v] of params.entries()) {
+                    const i = document.createElement('input');
+                    i.type = 'hidden';
+                    i.name = k;
+                    i.value = v;
+                    form.appendChild(i);
+                }
 
                 document.body.appendChild(form);
                 form.submit();

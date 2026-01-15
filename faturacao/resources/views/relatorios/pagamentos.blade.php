@@ -7,7 +7,6 @@
         <div class="bg-white rounded shadow p-4 mx-auto" style="width:100%; max-width:1400px; min-height:380px;">
             <h1 class="text-dark text-center">Relatório - Pagamentos</h1>
 
-            {{-- Filtro --}}
             <form method="GET" class="d-flex align-items-center mb-4" style="gap:1rem;" id="filtroForm">
                 <label class="mb-0 fw-semibold">Período:</label>
                 <select name="periodo" id="periodoSelect" class="form-select" style="width:auto;">
@@ -25,7 +24,6 @@
                 <button type="submit" class="btn btn-primary" style="width:auto; max-width:150px; white-space:nowrap;">Aplicar Filtro</button>
             </form>
 
-            {{-- Gráfico/Tabela --}}
             @if($pagamentos->isEmpty())
                 <div class="text-center py-5">
                     <h4 class="fw-semibold mt-4 mb-2">Sem dados de pagamentos para o período selecionado</h4>
@@ -103,7 +101,7 @@
         window.contagemMetodosPagamento = @json($contagemMetodosPagamento ?? []);
 
         window.csrfToken = @json(csrf_token());
-        window.pagamentosModo = 'evolucao'; // default
+        window.pagamentosModo = 'evolucao';
         window.pagamentosChart = null;
 
         async function exportPagamentosPdf() {
@@ -118,13 +116,34 @@
 
                 const form = document.createElement('form');
                 form.method = 'POST';
-                form.action = "{{ route('relatorios.pagamentos.export.pdf', request()->query()) }}";
+                form.action = @json(route('relatorios.pagamentos.export.pdf'));
 
-                form.innerHTML = `
-                    <input type="hidden" name="_token" value="${window.csrfToken}">
-                    <input type="hidden" name="chart_img" value="${imgURI}">
-                    <input type="hidden" name="modo" value="${modo}">
-                `;
+                const csrf = document.createElement('input');
+                csrf.type = 'hidden';
+                csrf.name = '_token';
+                csrf.value = window.csrfToken;
+                form.appendChild(csrf);
+
+                const ci = document.createElement('input');
+                ci.type = 'hidden';
+                ci.name = 'chart_img';
+                ci.value = imgURI;
+                form.appendChild(ci);
+
+                const mo = document.createElement('input');
+                mo.type = 'hidden';
+                mo.name = 'modo';
+                mo.value = modo;
+                form.appendChild(mo);
+
+                const params = new URLSearchParams(window.location.search);
+                for (const [k, v] of params.entries()) {
+                    const i = document.createElement('input');
+                    i.type = 'hidden';
+                    i.name = k;
+                    i.value = v;
+                    form.appendChild(i);
+                }
 
                 document.body.appendChild(form);
                 form.submit();

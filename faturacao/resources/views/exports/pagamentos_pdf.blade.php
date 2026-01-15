@@ -4,36 +4,45 @@
     <meta charset="utf-8">
     <title>Relatório - Pagamentos</title>
     <style>
-        body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color:#111; }
-        h1 { font-size: 18px; margin: 0 0 6px 0; }
-        .muted { color:#666; font-size: 11px; }
-        .box { border: 1px solid #ddd; border-radius: 6px; padding: 10px; margin: 10px 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color:#111; margin: 0; }
+        .page { width: 100%; padding: 18px 22px; }
+
+        h1 { font-size: 18px; margin: 0; text-align: center; }
+        .meta { margin-top: 6px; text-align: center; font-size: 11px; color:#333; line-height: 1.4; }
+        .meta strong { font-weight: 700; color:#111; }
+
+        .box { border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; margin: 12px auto; }
+        .box-title { font-weight: 700; margin-bottom: 8px; }
+
+        img { width: 100%; height: auto; display:block; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
         th, td { border: 1px solid #ddd; padding: 6px 8px; }
         th { background: #f3f3f3; text-align: left; }
         .right { text-align:right; }
-        .small { font-size: 10px; }
-        img { width: 100%; height: auto; }
+
+        .footer { margin-top: 6px; font-size: 10px; color:#666; text-align: right; }
     </style>
 </head>
 <body>
+<div class="page">
     <h1>Relatório - Pagamentos</h1>
-    <div class="muted">
+
+    <div class="meta">
         <div><strong>Período:</strong> {{ $periodoTexto ?? '-' }}</div>
         <div><strong>Modo:</strong> {{ ($modo ?? 'evolucao') === 'top' ? 'Top' : 'Evolução' }}</div>
-        <div class="small"><strong>Gerado em:</strong> {{ $geradoEm ?? now() }}</div>
+        <div><strong>Gerado em:</strong> {{ $geradoEm ?? now() }}</div>
     </div>
 
     <div class="box">
-        <strong>Gráfico</strong>
-        <div style="margin-top:8px;">
-            <img src="{{ $chartImg }}" alt="Gráfico">
-        </div>
+        <div class="box-title">Gráfico</div>
+        <img src="{{ $chartImg }}" alt="Gráfico">
     </div>
 
     @if(($modo ?? 'evolucao') === 'top')
         <div class="box">
-            <strong>Distribuição por método de pagamento</strong>
+            <div class="box-title">Distribuição por método de pagamento</div>
+
             <table>
                 <thead>
                     <tr>
@@ -50,10 +59,13 @@
                     @endforeach
                 </tbody>
             </table>
+
+            <div class="footer">Exportação PDF — GESFaturação</div>
         </div>
     @else
         <div class="box">
-            <strong>Evolução (pagamentos por dia)</strong>
+            <div class="box-title">Evolução (pagamentos por dia)</div>
+
             <table>
                 <thead>
                     <tr>
@@ -70,11 +82,14 @@
                     @endforeach
                 </tbody>
             </table>
+
+            <div class="footer">Exportação PDF — GESFaturação</div>
         </div>
     @endif
 
     <div class="box">
-        <strong>Listagem de pagamentos</strong>
+        <div class="box-title">Listagem de pagamentos</div>
+
         <table>
             <thead>
                 <tr>
@@ -97,6 +112,9 @@
                 @endforeach
             </tbody>
         </table>
+
+        <div class="footer">Exportação PDF — GESFaturação</div>
     </div>
+</div>
 </body>
 </html>
