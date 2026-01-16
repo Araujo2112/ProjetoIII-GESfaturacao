@@ -5,7 +5,22 @@
 @section('content')
     <div class="bg-dark-subtle d-flex justify-content-center align-items-start min-vh-100 pt-5">
         <div class="bg-white rounded shadow p-4 mx-auto" style="width:100%; max-width:1400px; min-height:380px;">
-            <h1 class="text-dark text-center">Relatório - Pagamentos</h1>
+
+            <div class="position-relative mb-3">
+                <h1 class="text-dark text-center">Relatório - Pagamentos</h1>
+
+                <div class="position-absolute top-50 end-0 translate-middle-y d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="exportPagamentosPdf()">
+                        Exportar PDF
+                    </button>
+
+                    <a class="btn btn-outline-secondary btn-sm"
+                    href="{{ route('relatorios.pagamentos.export.csv', request()->query()) }}">
+                        Exportar CSV
+                    </a>
+                </div>
+            </div>
+
 
             <form method="GET" class="d-flex align-items-center mb-4" style="gap:1rem;" id="filtroForm">
                 <label class="mb-0 fw-semibold">Período:</label>
@@ -42,15 +57,6 @@
                                 <button type="button" id="btnEvolucao" class="btn btn-outline-primary">Evolução</button>
                                 <button type="button" id="btnTop" class="btn btn-outline-primary">Top</button>
                             </div>
-
-                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="exportPagamentosPdf()">
-                                Exportar PDF
-                            </button>
-
-                            <a class="btn btn-outline-secondary btn-sm"
-                               href="{{ route('relatorios.pagamentos.export.csv', request()->query()) }}">
-                                Exportar CSV
-                            </a>
                         </div>
                     </div>
 

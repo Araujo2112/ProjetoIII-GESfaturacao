@@ -7,14 +7,20 @@
 
     {{-- CASHFLOW --}}
     <section class="bg-white rounded shadow p-4 mx-auto mb-5" style="max-width:1400px;">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <h1 class="text-dark text-center m-0">Cashflow (Faturas vs Compras) - Próximos 30 Dias</h1>
+            <div class="position-relative mb-3">
+                <h1 class="text-dark text-center">Relatório - Pagamentos</h1>
 
-            <div class="d-flex gap-2">
-                <button id="btnExportCashflowPdf" class="btn btn-outline-danger btn-sm">Exportar PDF</button>
-                <a href="{{ route('relatorios.vencimento.export.csv') }}" class="btn btn-outline-success btn-sm">Exportar CSV</a>
+                <div class="position-absolute top-50 end-0 translate-middle-y d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="exportPagamentosPdf()">
+                        Exportar PDF
+                    </button>
+
+                    <a class="btn btn-outline-secondary btn-sm"
+                    href="{{ route('relatorios.pagamentos.export.csv', request()->query()) }}">
+                        Exportar CSV
+                    </a>
+                </div>
             </div>
-        </div>
 
         @php
             $totalVendas = array_sum($dados['vendas']['monetario']);
