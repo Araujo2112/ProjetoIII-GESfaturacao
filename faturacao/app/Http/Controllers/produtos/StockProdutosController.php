@@ -42,9 +42,6 @@ class StockProdutosController extends Controller
         ]);
     }
 
-    /**
-     * Export PDF (com gráfico enviado como base64)
-     */
     public function exportPdf(Request $request)
     {
         $token = session('user.token');
@@ -62,9 +59,10 @@ class StockProdutosController extends Controller
         }
 
         $produtosRaw = $this->fetchProdutos();
-        $produtosFormatados = $this->formatarProdutosStockBaixo($produtosRaw);
+        $produtosFormatados = $this->formatarProdutosStockBaixo($produtosRaw ?? []);
 
         $pdf = Pdf::loadView('exports.produtos_stock_baixo_pdf', [
+            'titulo' => 'Top 5 Artigos - Abaixo do Limite de Stock',
             'produtos' => $produtosFormatados,
             'chartImg' => $chartImg,
             'geradoEm' => now(),
@@ -73,9 +71,6 @@ class StockProdutosController extends Controller
         return $pdf->download('top_5_artigos_abaixo_stock.pdf');
     }
 
-    /**
-     * Export CSV
-     */
     public function exportCsv(Request $request)
     {
         $token = session('user.token');
@@ -88,14 +83,12 @@ class StockProdutosController extends Controller
         }
 
         $produtosRaw = $this->fetchProdutos();
-        $produtosFormatados = $this->formatarProdutosStockBaixo($produtosRaw);
+        $produtosFormatados = $this->formatarProdutosStockBaixo($produtosRaw ?? []);
 
         $filename = 'top_5_artigos_abaixo_stock.csv';
 
         return response()->streamDownload(function () use ($produtosFormatados) {
             $out = fopen('php://output', 'w');
-
-            // BOM UTF-8
             echo "\xEF\xBB\xBF";
 
             fputcsv($out, ['Código', 'Nome', 'Categoria', 'Stock Atual', 'Stock Mínimo', 'Falta Repor'], ';');
@@ -112,20 +105,19 @@ class StockProdutosController extends Controller
             }
 
             fclose($out);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     private function fetchProdutos(): array
     {
         $token = session('user.token');
+
         $response = Http::withHeaders([
             'Authorization' => $token,
             'Accept' => 'application/json',
         ])->get('https://api.gesfaturacao.pt/api/v1.0.4/products');
 
-        return $response->json()['data'] ?? [];
+        return $response->successful() ? ($response->json()['data'] ?? []) : [];
     }
 
     private function formatarProdutosStockBaixo(array $produtos): array

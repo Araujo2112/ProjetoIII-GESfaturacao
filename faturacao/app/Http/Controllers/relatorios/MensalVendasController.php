@@ -56,9 +56,6 @@ class MensalVendasController extends Controller
         ]);
     }
 
-    // ============================
-    // EXPORT PDF
-    // ============================
     public function exportPdf(Request $request)
     {
         $token = session('user.token');
@@ -67,7 +64,10 @@ class MensalVendasController extends Controller
         }
 
         $chartImg = $request->input('chart_img');
-        $modo = $request->input('modo', 'lucro'); // 'lucro' | 'vendas'
+        $modo = $request->input('modo', 'lucro');
+        if (!in_array($modo, ['lucro', 'vendas'])) {
+            $modo = 'lucro';
+        }
 
         if (!$chartImg || !Str::startsWith($chartImg, 'data:image')) {
             return back()->withErrors(['error' => 'Não foi possível obter a imagem do gráfico para exportação.']);
@@ -85,24 +85,20 @@ class MensalVendasController extends Controller
         $totais = $this->calcularTotais($vendasPorMes);
 
         $pdf = Pdf::loadView('exports.mensal_vendas_pdf', [
+            'titulo' => 'Relatório - Mensal',
             'chartImg' => $chartImg,
             'modo' => $modo,
+            'modoTexto' => ($modo === 'vendas') ? 'Vendas' : 'Lucro',
             'periodoTexto' => $periodoTexto,
             'vendasPorMes' => $vendasPorMes,
             'totais' => $totais,
             'geradoEm' => now(),
         ])->setPaper('a4', 'portrait');
 
-        $nome = $modo === 'vendas'
-            ? 'relatorio_mensal_vendas.pdf'
-            : 'relatorio_mensal_lucro.pdf';
-
+        $nome = $modo === 'vendas' ? 'relatorio_mensal_vendas.pdf' : 'relatorio_mensal_lucro.pdf';
         return $pdf->download($nome);
     }
 
-    // ============================
-    // EXPORT CSV
-    // ============================
     public function exportCsv(Request $request)
     {
         $token = session('user.token');
@@ -125,8 +121,6 @@ class MensalVendasController extends Controller
 
         return response()->streamDownload(function () use ($vendasPorMes, $totais) {
             $out = fopen('php://output', 'w');
-
-            // BOM UTF-8 (Excel PT)
             echo "\xEF\xBB\xBF";
 
             fputcsv($out, ['Mês', 'Vendas c/IVA', 'Vendas s/IVA', 'Custos', 'Lucro', 'Quantidade', 'Nº Vendas'], ';');
@@ -154,14 +148,10 @@ class MensalVendasController extends Controller
             ], ';');
 
             fclose($out);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    // ============================
-    // HELPERS
-    // ============================
+    // ===== helpers (iguais aos teus) =====
 
     private function calcularTotais(Collection $vendasPorMes): array
     {
@@ -315,14 +305,12 @@ class MensalVendasController extends Controller
                     }
                 }
 
-                $lucro = $vendas - $custos;
-
                 return [
                     'mes' => $mes,
                     'vendas_com_iva' => $vendasIVA,
                     'vendas_sem_iva' => $vendas,
                     'custos' => $custos,
-                    'lucro' => $lucro,
+                    'lucro' => $vendas - $custos,
                     'quantidade' => $quantidade,
                     'num_vendas' => $numVendas,
                 ];

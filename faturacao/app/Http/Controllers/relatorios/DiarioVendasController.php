@@ -54,6 +54,9 @@ class DiarioVendasController extends Controller
         ]);
     }
 
+    // ============================
+    // EXPORT PDF
+    // ============================
     public function exportPdf(Request $request)
     {
         $token = session('user.token');
@@ -62,14 +65,16 @@ class DiarioVendasController extends Controller
         }
 
         $chartImg = $request->input('chart_img');
-        $modo = $request->input('modo', 'lucro'); // 'lucro' | 'vendas'
+        $modo = $request->input('modo', 'lucro');
+        if (!in_array($modo, ['lucro', 'vendas'])) {
+            $modo = 'lucro';
+        }
 
         if (!$chartImg || !Str::startsWith($chartImg, 'data:image')) {
             return back()->withErrors(['error' => 'Não foi possível obter a imagem do gráfico para exportação.']);
         }
 
-        // reutiliza filtros (periodo/data_inicio/data_fim) vindos do POST
-        [$inicio, $fim, $periodoTexto] = $this->definirPeriodo($request);
+        [$inicio, $fim, $periodoTexto, $periodo] = $this->definirPeriodo($request);
 
         $faturasValidas = $this->buscarFaturasValidas($token, $inicio, $fim);
         if ($faturasValidas === false) {
@@ -81,8 +86,10 @@ class DiarioVendasController extends Controller
         $totais = $this->calcularTotais($vendasPorDia);
 
         $pdf = Pdf::loadView('exports.diario_vendas_pdf', [
+            'titulo' => 'Relatório - Diário',
             'chartImg' => $chartImg,
             'modo' => $modo,
+            'modoTexto' => ($modo === 'vendas') ? 'Vendas' : 'Lucro',
             'periodoTexto' => $periodoTexto,
             'vendasPorDia' => $vendasPorDia,
             'totais' => $totais,
@@ -93,6 +100,9 @@ class DiarioVendasController extends Controller
         return $pdf->download($nome);
     }
 
+    // ============================
+    // EXPORT CSV
+    // ============================
     public function exportCsv(Request $request)
     {
         $token = session('user.token');
@@ -100,7 +110,7 @@ class DiarioVendasController extends Controller
             return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
         }
 
-        [$inicio, $fim] = $this->definirPeriodo($request);
+        [$inicio, $fim, $periodoTexto, $periodo] = $this->definirPeriodo($request);
 
         $faturasValidas = $this->buscarFaturasValidas($token, $inicio, $fim);
         if ($faturasValidas === false) {
@@ -121,7 +131,7 @@ class DiarioVendasController extends Controller
 
             foreach ($vendasPorDia as $dados) {
                 fputcsv($out, [
-                    $dados['dia'],
+                    $dados['dia'] ?? '',
                     number_format((float)($dados['vendas_com_iva'] ?? 0), 2, ',', '.'),
                     number_format((float)($dados['vendas_sem_iva'] ?? 0), 2, ',', '.'),
                     number_format((float)($dados['custos'] ?? 0), 2, ',', '.'),
@@ -133,17 +143,21 @@ class DiarioVendasController extends Controller
 
             fputcsv($out, [
                 'TOTAL',
-                number_format((float)$totais['total_vendas_iva'], 2, ',', '.'),
-                number_format((float)$totais['total_vendas'], 2, ',', '.'),
-                number_format((float)$totais['total_custos'], 2, ',', '.'),
-                number_format((float)$totais['total_lucro'], 2, ',', '.'),
-                (string)$totais['total_quantidade'],
-                (string)$totais['total_num_vendas'],
+                number_format((float)($totais['total_vendas_iva'] ?? 0), 2, ',', '.'),
+                number_format((float)($totais['total_vendas'] ?? 0), 2, ',', '.'),
+                number_format((float)($totais['total_custos'] ?? 0), 2, ',', '.'),
+                number_format((float)($totais['total_lucro'] ?? 0), 2, ',', '.'),
+                (string)($totais['total_quantidade'] ?? 0),
+                (string)($totais['total_num_vendas'] ?? 0),
             ], ';');
 
             fclose($out);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
+
+    // =========================
+    // HELPERS
+    // =========================
 
     private function calcularTotais(Collection $vendasPorDia): array
     {
@@ -199,6 +213,11 @@ class DiarioVendasController extends Controller
             case 'personalizado':
                 $inicio = $request->input('data_inicio');
                 $fim = $request->input('data_fim');
+                if (!$inicio || !$fim) {
+                    $inicio = $primeiroDoMes;
+                    $fim = $hoje;
+                    $periodo = 'mes';
+                }
                 $periodoTexto = "Personalizado: $inicio a $fim";
                 break;
         }
@@ -214,7 +233,7 @@ class DiarioVendasController extends Controller
         return $faturas->filter(function ($fatura) use ($inicio, $fim) {
             $statusId = $fatura['status']['id'] ?? 0;
             if ($statusId != 2) return false;
-            $dataFatura = substr($fatura['date'], 0, 10);
+            $dataFatura = substr($fatura['date'] ?? '', 0, 10);
             return $dataFatura >= $inicio && $dataFatura <= $fim;
         });
     }
@@ -227,7 +246,9 @@ class DiarioVendasController extends Controller
         $faturasValidas->chunk($batchSize)->each(function ($lote) use ($token, &$detalhes) {
             $responses = Http::pool(function ($pool) use ($lote, $token) {
                 foreach ($lote as $fatura) {
-                    $id = $fatura['id'];
+                    $id = $fatura['id'] ?? null;
+                    if (!$id) continue;
+
                     $number = $fatura['number'] ?? '';
                     $prefix = strtoupper(substr($number, 0, 2));
 
@@ -259,30 +280,30 @@ class DiarioVendasController extends Controller
     {
         $produtosCache = [];
 
-        return $detalhesFaturas->groupBy(fn ($f) => substr($f['date'], 0, 10))
+        return $detalhesFaturas->groupBy(fn ($f) => substr($f['date'] ?? '', 0, 10))
             ->map(function ($faturasDia, $dia) use ($token, &$produtosCache) {
-                $vendasIVA = $faturasDia->sum(fn($f) => floatval($f['grossTotal'] ?? 0));
-                $vendas = $faturasDia->sum(fn($f) => floatval($f['netTotal'] ?? 0));
-                $custos = 0;
+                $vendasIVA = $faturasDia->sum(fn($f) => (float)($f['grossTotal'] ?? 0));
+                $vendas = $faturasDia->sum(fn($f) => (float)($f['netTotal'] ?? 0));
+                $custos = 0.0;
                 $numVendas = $faturasDia->count();
-                $quantidade = 0;
+                $quantidade = 0.0;
 
                 foreach ($faturasDia as $fatura) {
                     foreach ($fatura['lines'] ?? [] as $line) {
-                        $quantLine = floatval($line['quantity'] ?? 0);
+                        $quantLine = (float)($line['quantity'] ?? 0);
                         $quantidade += $quantLine;
 
                         $prodId = $line['article']['id'] ?? null;
                         if ($prodId) {
-                            if (!isset($produtosCache[$prodId])) {
+                            if (!array_key_exists($prodId, $produtosCache)) {
                                 $response = Http::withHeaders([
                                     'Authorization' => $token,
                                     'Accept' => 'application/json',
                                 ])->get("https://api.gesfaturacao.pt/api/v1.0.4/products/{$prodId}");
 
                                 $produtosCache[$prodId] = $response->successful()
-                                    ? floatval($response->json('data.initialPrice') ?? 0)
-                                    : 0;
+                                    ? (float)($response->json('data.initialPrice') ?? 0)
+                                    : 0.0;
                             }
                             $custos += $produtosCache[$prodId] * $quantLine;
                         }
@@ -317,7 +338,7 @@ class DiarioVendasController extends Controller
 
         foreach ($period as $data) {
             $chave = $data->format('Y-m-d');
-            $valores[] = isset($dados[$chave]) ? round($dados[$chave]['vendas_com_iva'], 2) : 0;
+            $valores[] = isset($dados[$chave]) ? round((float)($dados[$chave]['vendas_com_iva'] ?? 0), 2) : 0;
         }
         return $valores;
     }
@@ -330,7 +351,7 @@ class DiarioVendasController extends Controller
 
         foreach ($period as $data) {
             $chave = $data->format('Y-m-d');
-            $valores[] = isset($dados[$chave]) ? round($dados[$chave]['lucro'], 2) : 0;
+            $valores[] = isset($dados[$chave]) ? round((float)($dados[$chave]['lucro'] ?? 0), 2) : 0;
         }
         return $valores;
     }

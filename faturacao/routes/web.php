@@ -131,3 +131,9 @@ Route::post('/relatorios/pagamentos/export/pdf', [PagamentosController::class, '
 
 Route::get('/relatorios/pagamentos/export/csv', [PagamentosController::class, 'exportCsv'])
     ->name('relatorios.pagamentos.export.csv');
+
+Route::post('/relatorios/vencimento/export/pdf', [VencimentoController::class, 'exportPdf'])
+    ->name('relatorios.vencimento.export.pdf');
+
+Route::get('/relatorios/vencimento/export/csv', [VencimentoController::class, 'exportCsv'])
+    ->name('relatorios.vencimento.export.csv');

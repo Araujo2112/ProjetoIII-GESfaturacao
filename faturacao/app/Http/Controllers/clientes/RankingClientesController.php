@@ -175,81 +175,40 @@ class RankingClientesController extends Controller
      * Exporta PDF do modo atual (qtd ou euros)
      */
     public function exportPdf(Request $request)
-    {
-        [$top5Vendas, $top5Euros, $periodoTexto] = $this->obterTop5($request);
-        if ($top5Vendas === null) {
-            return redirect()->route('login')->withErrors(['error' => 'Por favor, faça login novamente.']);
-        }
-
-        $modo = $request->input('mode', 'qtd'); // 'qtd' ou 'euros'
-        $chartImg = $request->input('chart_img');
-
-        $dados = ($modo === 'euros') ? $top5Euros : $top5Vendas;
-
-        $titulo = ($modo === 'euros')
-            ? 'Top 5 Clientes — Total (€)'
-            : 'Top 5 Clientes — Nº Vendas';
-
-        $pdf = Pdf::loadView('exports.clientes_top5_pdf', [
-            'titulo' => $titulo,
-            'periodoTexto' => $periodoTexto,
-            'modo' => $modo,
-            'clientes' => $dados,
-            'chartImg' => $chartImg,
-            'geradoEm' => now(),
-        ])->setPaper('a4', 'portrait');
-
-        $nome = ($modo === 'euros')
-            ? 'top_5_clientes_total_euros.pdf'
-            : 'top_5_clientes_num_vendas.pdf';
-
-        return $pdf->download($nome);
+{
+    [$top5Vendas, $top5Euros, $periodoTexto] = $this->obterTop5($request);
+    if ($top5Vendas === null) {
+        return redirect()->route('login')->withErrors(['error' => 'Por favor, faça login novamente.']);
     }
 
-    /**
-     * Exporta CSV do modo atual (qtd ou euros)
-     */
-    public function exportCsv(Request $request)
-    {
-        [$top5Vendas, $top5Euros, $periodoTexto] = $this->obterTop5($request);
-        if ($top5Vendas === null) {
-            return redirect()->route('login')->withErrors(['error' => 'Por favor, faça login novamente.']);
-        }
+    $modo = $request->input('mode', 'qtd'); // 'qtd' ou 'euros'
+    $chartImg = $request->input('chart_img');
 
-        $modo = $request->input('mode', 'qtd'); // 'qtd' ou 'euros'
-        $dados = ($modo === 'euros') ? $top5Euros : $top5Vendas;
+    if (!$chartImg || !\Illuminate\Support\Str::startsWith($chartImg, 'data:image')) {
+        return back()->withErrors(['error' => 'Não foi possível obter a imagem do gráfico para exportação.']);
+    }
 
-        $filename = ($modo === 'euros')
-            ? 'top_5_clientes_total_euros.csv'
-            : 'top_5_clientes_num_vendas.csv';
+    $dados = ($modo === 'euros') ? $top5Euros : $top5Vendas;
 
-        $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename=\"$filename\"",
-        ];
+    $titulo = ($modo === 'euros')
+        ? 'Top 5 Clientes — Total (€)'
+        : 'Top 5 Clientes — Nº Vendas';
 
-        $callback = function () use ($dados) {
-            $out = fopen('php://output', 'w');
+    $modoTexto = ($modo === 'euros') ? 'Total (€)' : 'Nº Vendas';
 
-            // BOM UTF-8 (Excel PT)
-            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+    $pdf = Pdf::loadView('exports.clientes_top5_pdf', [
+        'titulo' => $titulo,
+        'periodoTexto' => $periodoTexto,
+        'modoTexto' => $modoTexto,
+        'clientes' => $dados,
+        'chartImg' => $chartImg,
+        'geradoEm' => now(),
+    ])->setPaper('a4', 'portrait');
 
-            // Cabeçalho
-            fputcsv($out, ['Cód.', 'Cliente', 'NIF', 'Nº Vendas', 'Total (€)'], ';');
+    $nome = ($modo === 'euros')
+        ? 'top_5_clientes_total_euros.pdf'
+        : 'top_5_clientes_num_vendas.pdf';
 
-            foreach ($dados as $c) {
-                fputcsv($out, [
-                    $c['id'] ?? '',
-                    $c['cliente'] ?? '',
-                    $c['nif'] ?? '',
-                    $c['num_vendas'] ?? 0,
-                    number_format((float)($c['total_euros'] ?? 0), 2, ',', '.'),
-                ], ';');
-            }
-
-            fclose($out);
-        };
-
-        return response()->stream($callback, 200, $headers);
+    return $pdf->download($nome);
     }
 }
