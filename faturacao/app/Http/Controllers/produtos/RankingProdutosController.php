@@ -19,8 +19,7 @@ class RankingProdutosController extends Controller
             return redirect('/')->withErrors(['error' => 'Por favor, faça login novamente.']);
         }
 
-        $validacao = $this->validateToken($token);
-        if (!$validacao) {
+        if (!$this->validateToken($token)) {
             return redirect('/')->withErrors(['error' => 'Token inválido ou expirado.']);
         }
 
@@ -38,9 +37,6 @@ class RankingProdutosController extends Controller
         ]);
     }
 
-    /**
-     * Export PDF - recebe chart_img (data URI) e modo (mais/menos)
-     */
     public function exportPdf(Request $request)
     {
         $token = session('user.token');
@@ -62,11 +58,10 @@ class RankingProdutosController extends Controller
             $modo = 'mais';
         }
 
-        [$inicio, $fim, $periodoTexto] = $this->definirPeriodo($request);
+        [$inicio, $fim, $periodoTexto, $periodo] = $this->definirPeriodo($request);
 
         $topProdutos = $this->obterTopProdutos($token, $inicio, $fim);
 
-        // Ordenação para bater com o que o utilizador está a ver
         usort($topProdutos, function ($a, $b) use ($modo) {
             $qa = (float)($a['qtd'] ?? 0);
             $qb = (float)($b['qtd'] ?? 0);
@@ -74,6 +69,7 @@ class RankingProdutosController extends Controller
         });
 
         $pdf = Pdf::loadView('exports.produtos_top_pdf', [
+            'titulo' => 'Top 5 Artigos',
             'produtos' => $topProdutos,
             'chartImg' => $chartImg,
             'geradoEm' => now(),
@@ -84,9 +80,6 @@ class RankingProdutosController extends Controller
         return $pdf->download('top_5_artigos_' . ($modo === 'menos' ? 'menos' : 'mais') . '_vendidos.pdf');
     }
 
-    /**
-     * Export CSV - usa query string (periodo, datas) e modo (mais/menos)
-     */
     public function exportCsv(Request $request)
     {
         $token = session('user.token');
@@ -103,7 +96,7 @@ class RankingProdutosController extends Controller
             $modo = 'mais';
         }
 
-        [$inicio, $fim, $periodoTexto] = $this->definirPeriodo($request);
+        [$inicio, $fim, $periodoTexto, $periodo] = $this->definirPeriodo($request);
         $topProdutos = $this->obterTopProdutos($token, $inicio, $fim);
 
         usort($topProdutos, function ($a, $b) use ($modo) {
@@ -116,16 +109,12 @@ class RankingProdutosController extends Controller
 
         return response()->streamDownload(function () use ($topProdutos, $periodoTexto, $modo) {
             $out = fopen('php://output', 'w');
-
-            // BOM UTF-8 (Excel PT)
             echo "\xEF\xBB\xBF";
 
-            // Cabeçalho extra (opcional)
             fputcsv($out, ['Relatório', 'Top 5 Artigos', ($modo === 'menos' ? '- Vendidos' : '+ Vendidos')], ';');
             fputcsv($out, ['Período', $periodoTexto], ';');
             fputcsv($out, [], ';');
 
-            // Cabeçalho tabela
             fputcsv($out, ['Código', 'Nome', 'Categoria', 'Qtd Vendida', 'Preço c/IVA'], ';');
 
             foreach ($topProdutos as $p) {
@@ -139,14 +128,10 @@ class RankingProdutosController extends Controller
             }
 
             fclose($out);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    /**
-     * ---- Helpers ----
-     */
+    // ===== helpers (iguais aos teus) =====
 
     private function obterTopProdutos(string $token, string $inicio, string $fim): array
     {
@@ -182,9 +167,7 @@ class RankingProdutosController extends Controller
             }
         }
 
-        // Garantir ordem por defeito: + vendidos
         usort($topProdutos, fn($a, $b) => (float)$b['qtd'] <=> (float)$a['qtd']);
-
         return $topProdutos;
     }
 
@@ -227,6 +210,11 @@ class RankingProdutosController extends Controller
             case 'personalizado':
                 $inicio = $request->input('data_inicio');
                 $fim = $request->input('data_fim');
+                if (!$inicio || !$fim) {
+                    $inicio = $inicioSemanaAtual;
+                    $fim = $hoje;
+                    $periodo = 'semana';
+                }
                 $periodoTexto = "Personalizado: $inicio a $fim";
                 break;
         }
@@ -254,9 +242,7 @@ class RankingProdutosController extends Controller
                 return false;
             }
 
-            $data = $response->json();
-            $faturas = $data['data'] ?? [];
-            $todasFaturas = array_merge($todasFaturas, $faturas);
+            $todasFaturas = array_merge($todasFaturas, $response->json('data') ?? []);
         }
 
         return collect($todasFaturas);
@@ -271,10 +257,8 @@ class RankingProdutosController extends Controller
 
         return $faturas->filter(function ($fatura) use ($inicio, $fim) {
             $statusId = $fatura['status']['id'] ?? 0;
-            if ($statusId != 2) {
-                return false;
-            }
-            $dataFatura = substr($fatura['date'], 0, 10);
+            if ($statusId != 2) return false;
+            $dataFatura = substr($fatura['date'] ?? '', 0, 10);
             return $dataFatura >= $inicio && $dataFatura <= $fim;
         });
     }
@@ -287,7 +271,9 @@ class RankingProdutosController extends Controller
         $faturasValidas->chunk($batchSize)->each(function ($lote) use ($token, &$detalhes) {
             $responses = Http::pool(function ($pool) use ($lote, $token) {
                 foreach ($lote as $fatura) {
-                    $id = $fatura['id'];
+                    $id = $fatura['id'] ?? null;
+                    if (!$id) continue;
+
                     $number = $fatura['number'] ?? '';
                     $prefix = strtoupper(substr($number, 0, 2));
 
@@ -311,10 +297,6 @@ class RankingProdutosController extends Controller
             foreach ($responses as $response) {
                 if ($response instanceof \Illuminate\Http\Client\Response && $response->successful()) {
                     $detalhes->push($response->json('data'));
-                } elseif ($response instanceof \Exception) {
-                    \Log::error('Erro na requisição: Exceção - ' . $response->getMessage());
-                } else {
-                    \Log::error('Erro na requisição: ' . (method_exists($response, 'status') ? $response->status() : 'Desconhecido'));
                 }
             }
         });
@@ -332,12 +314,7 @@ class RankingProdutosController extends Controller
                 if (!$artigoId) continue;
 
                 $quantidade = (float)($linha['quantity'] ?? 0);
-
-                if (!isset($qtdPorProduto[$artigoId])) {
-                    $qtdPorProduto[$artigoId] = 0;
-                }
-
-                $qtdPorProduto[$artigoId] += $quantidade;
+                $qtdPorProduto[$artigoId] = ($qtdPorProduto[$artigoId] ?? 0) + $quantidade;
             }
         }
 
@@ -351,10 +328,7 @@ class RankingProdutosController extends Controller
             'Accept' => 'application/json',
         ])->get("https://api.gesfaturacao.pt/api/v1.0.4/products/{$id}");
 
-        if ($response->successful()) {
-            return $response->json('data');
-        }
-        return [];
+        return $response->successful() ? ($response->json('data') ?? []) : [];
     }
 
     private function validateToken($token)

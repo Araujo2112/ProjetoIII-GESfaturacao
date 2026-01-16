@@ -31,11 +31,11 @@ class PagamentosController extends Controller
         $detalhesRecibos = $this->buscarDetalhesRecibos($token, $recibosValidos);
 
         $resultadoCalculo = $this->calcularDadosRecibos($detalhesRecibos);
-        $pagamentos = $resultadoCalculo['recibos'];
+
+        $pagamentos = $resultadoCalculo['recibos']->sortBy('data')->values();
         $contagemMetodosPagamento = $resultadoCalculo['contagem_metodos_pagamento'];
         $contagemPagamentosPorDia = $resultadoCalculo['contagem_pagamentos_por_dia'];
 
-        // Datas para o gráfico (labels + keys reais Y-m-d)
         [$datasFormatadas, $datasYMD] = $this->formatarDatas($inicio, $fim);
 
         return view('relatorios.pagamentos', [
@@ -51,9 +51,6 @@ class PagamentosController extends Controller
         ]);
     }
 
-    /**
-     * EXPORT PDF (com o gráfico selecionado: evolucao | top)
-     */
     public function exportPdf(Request $request)
     {
         $token = session('user.token');
@@ -62,13 +59,15 @@ class PagamentosController extends Controller
         }
 
         $chartImg = $request->input('chart_img');
-        $modo = $request->input('modo', 'evolucao'); // evolucao | top
+        $modo = $request->input('modo', 'evolucao');
+        if (!in_array($modo, ['evolucao', 'top'])) {
+            $modo = 'evolucao';
+        }
 
         if (!$chartImg || !Str::startsWith($chartImg, 'data:image')) {
             return back()->withErrors(['error' => 'Não foi possível obter a imagem do gráfico para exportação.']);
         }
 
-        // Mesmos filtros do index (GET params vêm no POST também via query string ou inputs hidden, mas aqui reutilizamos o Request)
         [$inicio, $fim, $periodoTexto, $periodo] = $this->definirPeriodo($request);
 
         $recibosValidos = $this->buscarRecibosValidos($token, $inicio, $fim);
@@ -77,14 +76,15 @@ class PagamentosController extends Controller
         }
 
         $detalhesRecibos = $this->buscarDetalhesRecibos($token, $recibosValidos);
-
         $resultadoCalculo = $this->calcularDadosRecibos($detalhesRecibos);
 
         $pdf = Pdf::loadView('exports.pagamentos_pdf', [
+            'titulo' => 'Relatório - Pagamentos',
             'chartImg' => $chartImg,
             'modo' => $modo,
+            'modoTexto' => ($modo === 'top') ? 'Top' : 'Evolução',
             'periodoTexto' => $periodoTexto,
-            'pagamentos' => $resultadoCalculo['recibos'],
+            'pagamentos' => $resultadoCalculo['recibos']->sortBy('data')->values(),
             'contagemMetodosPagamento' => $resultadoCalculo['contagem_metodos_pagamento'],
             'contagemPagamentosPorDia' => $resultadoCalculo['contagem_pagamentos_por_dia'],
             'geradoEm' => now(),
@@ -94,9 +94,6 @@ class PagamentosController extends Controller
         return $pdf->download($nome);
     }
 
-    /**
-     * EXPORT CSV
-     */
     public function exportCsv(Request $request)
     {
         $token = session('user.token');
@@ -112,19 +109,17 @@ class PagamentosController extends Controller
         }
 
         $detalhesRecibos = $this->buscarDetalhesRecibos($token, $recibosValidos);
-
         $resultadoCalculo = $this->calcularDadosRecibos($detalhesRecibos);
-        $pagamentos = $resultadoCalculo['recibos'];
+
+        /** @var \Illuminate\Support\Collection $pagamentos */
+        $pagamentos = $resultadoCalculo['recibos']->sortBy('data')->values();
 
         $filename = 'relatorio_pagamentos.csv';
 
         return response()->streamDownload(function () use ($pagamentos) {
             $out = fopen('php://output', 'w');
-
-            // BOM UTF-8 (Excel PT)
             echo "\xEF\xBB\xBF";
 
-            // separador ;
             fputcsv($out, ['Data', 'Número Recibo', 'Tipo de Pagamento', 'Preço c/IVA', 'Preço s/IVA'], ';');
 
             foreach ($pagamentos as $p) {
@@ -138,14 +133,8 @@ class PagamentosController extends Controller
             }
 
             fclose($out);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
-
-    // =========================
-    // LÓGICA EXISTENTE (ajustada)
-    // =========================
 
     private function definirPeriodo(Request $request)
     {
@@ -187,6 +176,11 @@ class PagamentosController extends Controller
             case 'personalizado':
                 $inicio = $request->input('data_inicio');
                 $fim = $request->input('data_fim');
+                if (!$inicio || !$fim) {
+                    $inicio = $inicioSemanaAtual;
+                    $fim = $hoje;
+                    $periodo = 'semana';
+                }
                 $periodoTexto = "Personalizado: $inicio a $fim";
                 break;
         }
@@ -206,7 +200,7 @@ class PagamentosController extends Controller
             if ($statusId == 5 || $statusId == 0) {
                 return false;
             }
-            $dataRecibo = substr($recibo['date'], 0, 10);
+            $dataRecibo = substr($recibo['date'] ?? '', 0, 10);
             return $dataRecibo >= $inicio && $dataRecibo <= $fim;
         });
     }
@@ -230,9 +224,7 @@ class PagamentosController extends Controller
                 return false;
             }
 
-            $data = $response->json();
-            $recibos = $data['data'] ?? [];
-            $todosRecibos = array_merge($todosRecibos, $recibos);
+            $todosRecibos = array_merge($todosRecibos, $response->json('data') ?? []);
         }
 
         return collect($todosRecibos);
@@ -246,7 +238,9 @@ class PagamentosController extends Controller
         $recibosValidos->chunk($batchSize)->each(function ($lote) use ($token, &$detalhes) {
             $responses = Http::pool(function ($pool) use ($lote, $token) {
                 foreach ($lote as $recibo) {
-                    $id = $recibo['id'];
+                    $id = $recibo['id'] ?? null;
+                    if (!$id) continue;
+
                     $number = $recibo['number'] ?? '';
                     $prefix = strtoupper(substr($number, 0, 2));
 
@@ -269,10 +263,6 @@ class PagamentosController extends Controller
             foreach ($responses as $response) {
                 if ($response instanceof \Illuminate\Http\Client\Response && $response->successful()) {
                     $detalhes->push($response->json('data'));
-                } elseif ($response instanceof \Exception) {
-                    \Log::error('Erro na requisição: Exceção - ' . $response->getMessage());
-                } else {
-                    \Log::error('Erro na requisição: ' . (method_exists($response, 'status') ? $response->status() : 'Desconhecido') . ' - ' . (method_exists($response, 'body') ? $response->body() : ''));
                 }
             }
         });
@@ -280,9 +270,6 @@ class PagamentosController extends Controller
         return $detalhes;
     }
 
-    /**
-     * Aqui corrigimos para contagemPorDia ter chave Y-m-d (não datetime completo)
-     */
     private function calcularDadosRecibos(Collection $detalhesFaturas): array
     {
         $contagemMetodos = [];
@@ -296,15 +283,15 @@ class PagamentosController extends Controller
             $numero = $fatura['number'] ?? '';
             $prefix = strtoupper(substr($numero, 0, 2));
 
-            $precoComIva = 0;
-            $precoSemIva = 0;
+            $precoComIva = 0.0;
+            $precoSemIva = 0.0;
 
             if ($prefix === 'RG') {
-                $precoComIva = floatval($fatura['total'] ?? 0);
-                $precoSemIva = floatval($fatura['netTotal'] ?? 0);
+                $precoComIva = (float)($fatura['total'] ?? 0);
+                $precoSemIva = (float)($fatura['netTotal'] ?? 0);
             } elseif ($prefix === 'FR') {
-                $precoComIva = floatval($fatura['grossTotal'] ?? 0);
-                $precoSemIva = floatval($fatura['netTotal'] ?? 0);
+                $precoComIva = (float)($fatura['grossTotal'] ?? 0);
+                $precoSemIva = (float)($fatura['netTotal'] ?? 0);
             }
 
             $contagemMetodos[$metodo] = ($contagemMetodos[$metodo] ?? 0) + 1;
@@ -328,9 +315,6 @@ class PagamentosController extends Controller
         ];
     }
 
-    /**
-     * devolve [labels d-m, keys Y-m-d]
-     */
     private function formatarDatas(string $inicio, string $fim): array
     {
         $period = CarbonPeriod::create($inicio, $fim);

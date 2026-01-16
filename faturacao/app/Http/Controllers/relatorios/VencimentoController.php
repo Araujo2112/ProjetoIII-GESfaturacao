@@ -9,6 +9,9 @@ use Illuminate\Support\Collection;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Str;
+
 class VencimentoController extends Controller
 {
     public function index(Request $request)
@@ -54,6 +57,113 @@ class VencimentoController extends Controller
         ]);
     }
 
+    // =========================
+    // EXPORT PDF (Cashflow)
+    // =========================
+    public function exportPdf(Request $request)
+    {
+        $token = session('user.token');
+        if (!$token) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
+        }
+
+        $chartImg = $request->input('chart_img');
+        if (!$chartImg || !Str::startsWith($chartImg, 'data:image')) {
+            return back()->withErrors(['error' => 'Não foi possível obter a imagem do gráfico para exportação.']);
+        }
+
+        $vendas = $this->buscarFaturasVencerProximos30Dias($token, 'sales');
+        $compras = $this->buscarFaturasVencerProximos30Dias($token, 'purchases');
+
+        if ($vendas === false || $compras === false) {
+            return redirect('/')->withErrors(['error' => 'Erro ao obter dados para exportação.']);
+        }
+
+        $vendas = $vendas->sortBy('expiration')->values();
+        $compras = $compras->sortBy('expiration')->values();
+
+        $periodoTexto = 'Próximos 30 dias';
+
+        $pdf = Pdf::loadView('exports.vencimentos_pdf', [
+            'titulo' => 'Relatório - Cashflow (Vencimentos)',
+            'periodoTexto' => $periodoTexto,
+            'modoTexto' => 'Cashflow',
+            'geradoEm' => now(),
+            'chartImg' => $chartImg,
+            'vendas' => $vendas,
+            'compras' => $compras,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download('relatorio_cashflow_vencimentos.pdf');
+    }
+
+    // =========================
+    // EXPORT CSV (Cashflow)
+    // =========================
+    public function exportCsv(Request $request)
+    {
+        $token = session('user.token');
+        if (!$token) {
+            return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
+        }
+
+        $vendas = $this->buscarFaturasVencerProximos30Dias($token, 'sales');
+        $compras = $this->buscarFaturasVencerProximos30Dias($token, 'purchases');
+
+        if ($vendas === false || $compras === false) {
+            return redirect('/')->withErrors(['error' => 'Erro ao obter dados para exportação.']);
+        }
+
+        $filename = 'relatorio_cashflow_vencimentos.csv';
+
+        return response()->streamDownload(function () use ($vendas, $compras) {
+            $out = fopen('php://output', 'w');
+            echo "\xEF\xBB\xBF";
+
+            fputcsv($out, [
+                'Tipo',
+                'Número',
+                'Entidade',
+                'NIF',
+                'Data',
+                'Vencimento',
+                'Saldo'
+            ], ';');
+
+            foreach ($vendas as $f) {
+                fputcsv($out, [
+                    'Venda',
+                    $f['number'] ?? '',
+                    $f['client']['name'] ?? '',
+                    $f['client']['vatNumber'] ?? '',
+                    !empty($f['date']) ? substr($f['date'], 0, 10) : '',
+                    !empty($f['expiration']) ? substr($f['expiration'], 0, 10) : '',
+                    number_format((float)abs($f['balance'] ?? 0), 2, ',', '.'),
+                ], ';');
+            }
+
+            foreach ($compras as $f) {
+                fputcsv($out, [
+                    'Compra',
+                    $f['number'] ?? '',
+                    $f['supplier']['name'] ?? '',
+                    $f['supplier']['vatNumber'] ?? '',
+                    !empty($f['date']) ? substr($f['date'], 0, 10) : '',
+                    !empty($f['expiration']) ? substr($f['expiration'], 0, 10) : '',
+                    number_format((float)abs($f['balance'] ?? 0), 2, ',', '.'),
+                ], ';');
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    // =========================
+    // EXISTENTE
+    // =========================
+
     private function buscarFaturasVencerProximos30Dias(string $token, string $tipo): Collection|bool
     {
         $faturas = $this->listarFaturasPorTipo($token, $tipo);
@@ -75,7 +185,6 @@ class VencimentoController extends Controller
             }
 
             $expiration = Carbon::parse($fatura['expiration']);
-
             return $expiration->betweenIncluded($hoje, $limite);
         });
     }

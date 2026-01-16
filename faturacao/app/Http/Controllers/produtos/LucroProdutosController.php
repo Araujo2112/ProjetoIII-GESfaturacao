@@ -17,8 +17,7 @@ class LucroProdutosController extends Controller
             return redirect('/')->withErrors(['error' => 'Por favor, faça login novamente.']);
         }
 
-        $validacao = $this->validateToken($token);
-        if (!$validacao) {
+        if (!$this->validateToken($token)) {
             return redirect('/')->withErrors(['error' => 'Token inválido ou expirado.']);
         }
 
@@ -47,10 +46,6 @@ class LucroProdutosController extends Controller
         ]);
     }
 
-    /**
-     * Exporta PDF (com gráfico incluído como imagem base64 enviada pelo frontend)
-     * Espera receber: chart_img = "data:image/png;base64,...."
-     */
     public function exportPdf(Request $request)
     {
         $token = session('user.token');
@@ -58,8 +53,7 @@ class LucroProdutosController extends Controller
             return redirect('/')->withErrors(['error' => 'Por favor, faça login novamente.']);
         }
 
-        $validacao = $this->validateToken($token);
-        if (!$validacao) {
+        if (!$this->validateToken($token)) {
             return redirect('/')->withErrors(['error' => 'Token inválido ou expirado.']);
         }
 
@@ -68,9 +62,8 @@ class LucroProdutosController extends Controller
             return back()->withErrors(['error' => 'Não foi possível obter a imagem do gráfico para exportação.']);
         }
 
-        // Reutiliza exatamente a mesma lógica do index()
         $produtosRaw = $this->fetchProdutos();
-        $produtosFormatados = $this->formatarProdutosComLucro($produtosRaw);
+        $produtosFormatados = $this->formatarProdutosComLucro($produtosRaw ?? []);
 
         $topProdutos = collect($produtosFormatados)
             ->sortByDesc('lucro')
@@ -79,6 +72,7 @@ class LucroProdutosController extends Controller
             ->all();
 
         $pdf = Pdf::loadView('exports.produtos_lucro_pdf', [
+            'titulo' => 'Top 5 Artigos — Maior Lucro',
             'produtos' => $topProdutos,
             'chartImg' => $chartImg,
             'geradoEm' => now(),
@@ -87,9 +81,6 @@ class LucroProdutosController extends Controller
         return $pdf->download('top_5_artigos_maior_lucro.pdf');
     }
 
-    /**
-     * Exporta CSV (dados da tabela)
-     */
     public function exportCsv(Request $request)
     {
         $token = session('user.token');
@@ -97,14 +88,12 @@ class LucroProdutosController extends Controller
             return redirect('/')->withErrors(['error' => 'Por favor, faça login novamente.']);
         }
 
-        $validacao = $this->validateToken($token);
-        if (!$validacao) {
+        if (!$this->validateToken($token)) {
             return redirect('/')->withErrors(['error' => 'Token inválido ou expirado.']);
         }
 
-        // Reutiliza exatamente a mesma lógica do index()
         $produtosRaw = $this->fetchProdutos();
-        $produtosFormatados = $this->formatarProdutosComLucro($produtosRaw);
+        $produtosFormatados = $this->formatarProdutosComLucro($produtosRaw ?? []);
 
         $topProdutos = collect($produtosFormatados)
             ->sortByDesc('lucro')
@@ -116,28 +105,23 @@ class LucroProdutosController extends Controller
 
         return response()->streamDownload(function () use ($topProdutos) {
             $out = fopen('php://output', 'w');
-
-            // BOM UTF-8 para Excel abrir acentos corretamente
             echo "\xEF\xBB\xBF";
 
-            // Separador ; (Excel PT)
             fputcsv($out, ['Código', 'Nome', 'Categoria', 'Preço s/IVA', 'Custo', 'Lucro'], ';');
 
             foreach ($topProdutos as $p) {
                 fputcsv($out, [
-                    $p['cod'],
-                    $p['nome'],
-                    $p['categoria'],
-                    number_format((float)$p['preco_s_iva'], 2, ',', '.'),
-                    number_format((float)$p['custo'], 2, ',', '.'),
-                    number_format((float)$p['lucro'], 2, ',', '.'),
+                    $p['cod'] ?? '',
+                    $p['nome'] ?? '',
+                    $p['categoria'] ?? '',
+                    number_format((float)($p['preco_s_iva'] ?? 0), 2, ',', '.'),
+                    number_format((float)($p['custo'] ?? 0), 2, ',', '.'),
+                    number_format((float)($p['lucro'] ?? 0), 2, ',', '.'),
                 ], ';');
             }
 
             fclose($out);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     private function fetchProdutos()
@@ -148,16 +132,17 @@ class LucroProdutosController extends Controller
             'Accept' => 'application/json',
         ])->get('https://api.gesfaturacao.pt/api/v1.0.4/products');
 
-        return $response->json()['data'] ?? [];
+        return $response->successful() ? ($response->json()['data'] ?? []) : [];
     }
 
     private function formatarProdutosComLucro(array $produtos): array
     {
         $formatados = [];
         foreach ($produtos as $produto) {
-            $preco_s_iva = (float) ($produto['price'] ?? 0);
-            $custo = (float) ($produto['initialPrice'] ?? 0);
+            $preco_s_iva = (float)($produto['price'] ?? 0);
+            $custo = (float)($produto['initialPrice'] ?? 0);
             $lucro = $preco_s_iva - $custo;
+
             $formatados[] = [
                 'id' => $produto['id'] ?? '',
                 'cod' => $produto['code'] ?? '',
