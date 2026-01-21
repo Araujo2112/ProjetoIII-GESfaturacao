@@ -211,4 +211,64 @@ class RankingClientesController extends Controller
 
     return $pdf->download($nome);
     }
+
+    /**
+ * Export CSV (dados da tabela) — respeita o mode e o filtro
+ * mode = qtd | euros
+ */
+    public function exportCsv(Request $request)
+    {
+        [$inicio, $fim, $periodoTexto] = $this->resolverPeriodo($request);
+
+        $mode = $request->input('mode', 'qtd'); // qtd ou euros
+
+        $ranking = $this->clientes($inicio, $fim);
+        if ($ranking === null) {
+            return redirect()->route('login');
+        }
+
+        $top5 = ($mode === 'euros')
+            ? $ranking->sortByDesc('total_euros')->take(5)->values()
+            : $ranking->sortByDesc('num_vendas')->take(5)->values();
+
+        $filename = ($mode === 'euros')
+            ? 'top_5_clientes_euros.csv'
+            : 'top_5_clientes_qtd.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ];
+
+        $callback = function () use ($top5, $periodoTexto, $mode) {
+            $out = fopen('php://output', 'w');
+
+            // BOM para Excel abrir UTF-8 corretamente
+            fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
+
+            // Cabeçalho "meta"
+            fputcsv($out, ['Relatório', 'Top 5 Clientes'], ';');
+            fputcsv($out, ['Período', $periodoTexto], ';');
+            fputcsv($out, ['Modo', $mode], ';');
+            fputcsv($out, [], ';');
+
+            // Cabeçalhos da tabela
+            fputcsv($out, ['#', 'Cliente', 'NIF', 'Nº Vendas', 'Total (€)'], ';');
+
+            $i = 1;
+            foreach ($top5 as $c) {
+                fputcsv($out, [
+                    $i++,
+                    $c['cliente'] ?? '',
+                    $c['nif'] ?? '',
+                    (int)($c['num_vendas'] ?? 0),
+                    number_format((float)($c['total_euros'] ?? 0), 2, ',', ''),
+                ], ';');
+            }
+
+            fclose($out);
+        };
+
+        return response()->streamDownload($callback, $filename, $headers);
+    }
 }

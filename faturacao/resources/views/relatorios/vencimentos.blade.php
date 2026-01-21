@@ -8,15 +8,15 @@
     {{-- CASHFLOW --}}
     <section class="bg-white rounded shadow p-4 mx-auto mb-5" style="max-width:1400px;">
             <div class="position-relative mb-3">
-                <h1 class="text-dark text-center">Relatório - Pagamentos</h1>
+                <h1 class="text-dark text-center">Cashflow (Faturas vs Compras) - Próximos 30 Dias</h1>
 
                 <div class="position-absolute top-50 end-0 translate-middle-y d-flex gap-2">
-                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="exportPagamentosPdf()">
+                    <button id="btnExportCashflowPdf" class="btn btn-outline-primary btn-sm">
                         Exportar PDF
                     </button>
 
                     <a class="btn btn-outline-secondary btn-sm"
-                    href="{{ route('relatorios.pagamentos.export.csv', request()->query()) }}">
+                    href="{{ route('relatorios.vencimento.export.csv') }}">
                         Exportar CSV
                     </a>
                 </div>
