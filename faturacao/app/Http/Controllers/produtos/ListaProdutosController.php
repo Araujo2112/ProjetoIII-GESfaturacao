@@ -32,9 +32,10 @@ class ListaProdutosController extends Controller
 
         $produtos = collect();
         if ($response->successful()) {
-            $dados = $response->json();
-            $produtos = collect($dados['data'] ?? []);
+            $dados = $response->json(); //converte JSON para array PHP
+            $produtos = collect($dados['data'] ?? []); //extrai o array de produtos e converte para Collection
 
+            // normalização
             $produtos = $produtos->map(function ($produto) {
                 return [
                     'id' => $produto['id'] ?? '',

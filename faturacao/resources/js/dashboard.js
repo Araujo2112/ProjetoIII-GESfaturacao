@@ -1,22 +1,27 @@
+//quando a página carrega
 document.addEventListener('DOMContentLoaded', function () {
+    //dados de linha nos últimos 7 dias
     const lineData =
         window.dashboardData &&
         Array.isArray(window.dashboardData.totais) &&
         window.dashboardData.totais.some(val => val > 0);
 
+    //valores por categoria
     const categoriasValores =
         window.dashboardCategorias &&
         typeof window.dashboardCategorias === 'object' &&
         window.dashboardCategorias.valores &&
         Object.values(window.dashboardCategorias.valores).some(val => val > 0);
 
+    //quantiades por dia
     const categoriasQtd =
         window.dashboardCategorias &&
         window.dashboardCategorias.quantidadesPorDia &&
-        Object.values(window.dashboardCategorias.quantidadesPorDia).some(obj => 
+        Object.values(window.dashboardCategorias.quantidadesPorDia).some(obj =>
             obj && Object.values(obj).some(val => val > 0)
         );
 
+    //se estiver tudo bem, desenha o gráfico dos últimos 7 dias
     if (lineData && categoriasValores && categoriasQtd) {
         const areaOptions = {
             chart: {
@@ -65,10 +70,12 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         };
 
+        //renderiza
         const areaChart = new ApexCharts(document.querySelector("#faturacaoChart"), areaOptions);
         areaChart.render();
 
-                const valoresCategorias = window.dashboardCategorias.valores;
+        //pie char € por categoria
+        const valoresCategorias = window.dashboardCategorias.valores;
         const categoriasOrdenadas = Object.keys(valoresCategorias).sort();
 
         const pieOptions = {
@@ -76,8 +83,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 type: 'pie',
                 height: 350
             },
-            dataLabels: { 
-                enabled: true 
+            dataLabels: {
+                enabled: true
             },
             series: categoriasOrdenadas.map(cat => valoresCategorias[cat]),
             labels: categoriasOrdenadas,

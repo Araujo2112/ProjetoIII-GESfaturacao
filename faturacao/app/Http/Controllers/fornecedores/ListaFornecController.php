@@ -30,13 +30,13 @@ class ListaFornecController extends Controller
             'Accept' => 'application/json',
         ])->get('https://api.gesfaturacao.pt/api/v1.0.4/suppliers');
 
-        $fornecedores = collect();
+        $fornecedores = collect(); //inicia a coleção vazia
         if ($response->successful()) {
-            $dados = $response->json();
-            $fornecedores = collect($dados['data'] ?? []);
+            $dados = $response->json(); //converte JSON para array PHP
+            $fornecedores = collect($dados['data'] ?? []); //extrai o array de fornecedores e converte para Collection
 
             if ($search) {
-                $searchLower = mb_strtolower($search);
+                $searchLower = mb_strtolower($search); //minúsculas
                 $fornecedores = $fornecedores->filter(function($fornec) use ($searchLower) {
                     return false !== stripos($fornec['name'] ?? '', $searchLower)
                         || false !== stripos($fornec['code'] ?? '', $searchLower)
@@ -57,8 +57,8 @@ class ListaFornecController extends Controller
 
         $totalRegistos = $fornecedores->count();
         $totalPaginas = max(1, ceil($totalRegistos / $rows));
-        $paginaAtual = max(1, min($page, $totalPaginas));
-        $fornecedoresPaginados = $fornecedores->forPage($paginaAtual, $rows)->values();
+        $paginaAtual = max(1, min($page, $totalPaginas)); //página atual dentro dos limites
+        $fornecedoresPaginados = $fornecedores->forPage($paginaAtual, $rows)->values(); //extrai registos da página atual
 
         return view('fornecedores.listaFornec', [
             'fornecedores' => $fornecedoresPaginados->toArray(),

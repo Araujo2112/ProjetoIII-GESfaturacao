@@ -21,6 +21,7 @@ class LucroProdutosController extends Controller
             return redirect('/')->withErrors(['error' => 'Token inválido ou expirado.']);
         }
 
+        // chama a API
         $produtosRaw = $this->fetchProdutos();
         if (!$produtosRaw) {
             return view('produtos.lucro', [
@@ -29,14 +30,17 @@ class LucroProdutosController extends Controller
             ]);
         }
 
+        // extrai campos e calcula o lucro
         $produtosFormatados = $this->formatarProdutosComLucro($produtosRaw);
 
+        // top 5, tranforma em collection
         $topProdutos = collect($produtosFormatados)
             ->sortByDesc('lucro')
             ->take(5)
-            ->values()
-            ->all();
+            ->values() //reindexa
+            ->all(); //volta para array normal
 
+        //dados view + dados do gráfico
         return view('produtos.lucro', [
             'produtos' => $topProdutos,
             'graficoDados' => [
@@ -57,6 +61,7 @@ class LucroProdutosController extends Controller
             return redirect('/')->withErrors(['error' => 'Token inválido ou expirado.']);
         }
 
+        //recebe a imagem do gráfico
         $chartImg = $request->input('chart_img');
         if (!$chartImg || !Str::startsWith($chartImg, 'data:image')) {
             return back()->withErrors(['error' => 'Não foi possível obter a imagem do gráfico para exportação.']);
@@ -71,6 +76,7 @@ class LucroProdutosController extends Controller
             ->values()
             ->all();
 
+        //gera PDF a partir de uma view
         $pdf = Pdf::loadView('exports.produtos_lucro_pdf', [
             'titulo' => 'Top 5 Artigos — Maior Lucro',
             'produtos' => $topProdutos,
@@ -105,7 +111,7 @@ class LucroProdutosController extends Controller
 
         return response()->streamDownload(function () use ($topProdutos) {
             $out = fopen('php://output', 'w');
-            echo "\xEF\xBB\xBF";
+            echo "\xEF\xBB\xBF"; //acentos corretos
 
             fputcsv($out, ['Código', 'Nome', 'Categoria', 'Preço s/IVA', 'Custo', 'Lucro'], ';');
 

@@ -46,10 +46,10 @@ Route::get('/clientes', [ListaClientesController::class, 'lista'])
 Route::get('/clientes/top5', [RankingClientesController::class, 'topClientes'])
     ->name('clientes.top');
 
-Route::post('/clientes/top5/export/pdf', [RankingClientesController::class, 'exportPdf'])
+Route::post('/clientes/top5/export/pdf', [RankingClientesController::class, 'exportPdf'])  //usa template
     ->name('clientes.top.export.pdf');
 
-Route::get('/clientes/top5/export/csv', [RankingClientesController::class, 'exportCsv'])
+Route::get('/clientes/top5/export/csv', [RankingClientesController::class, 'exportCsv'])  //dowload direto
     ->name('clientes.top.export.csv');
 
 
@@ -93,7 +93,7 @@ Route::get('/produtos/stock/export/csv', [StockProdutosController::class, 'expor
     ->name('produtos.stock.export.csv');
 
 
-// EXPORT PDF/CSV)
+// EXPORT PDF/CSV
 Route::post('/artigos/lucro/export/pdf', [LucroProdutosController::class, 'exportPdf'])
     ->name('artigos.lucro.export.pdf');
 
