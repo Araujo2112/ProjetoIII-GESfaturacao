@@ -131,7 +131,6 @@ class RankingProdutosController extends Controller
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    // ===== helpers (iguais aos teus) =====
 
     private function obterTopProdutos(string $token, string $inicio, string $fim): array
     {

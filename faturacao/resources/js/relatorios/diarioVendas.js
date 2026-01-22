@@ -8,9 +8,9 @@ document.addEventListener('DOMContentLoaded', function () {
     function toggleCamposPersonalizado() {
         if (!periodoSelect || !camposPersonalizado) return;
         if (periodoSelect.value === 'personalizado') {
-            camposPersonalizado.style.display = '';
+            camposPersonalizado.classList.remove('esconder');
         } else {
-            camposPersonalizado.style.display = 'none';
+            camposPersonalizado.classList.add('esconder');
         }
     }
 
@@ -47,8 +47,6 @@ document.addEventListener('DOMContentLoaded', function () {
             chart: {
                 type: 'line',
                 height: 350,
-                toolbar: { show: true },
-                zoom: { enabled: true, type: 'x', autoScaleYaxis: true }
             },
             dataLabels: { enabled: false },
             series: [{ name, data }],

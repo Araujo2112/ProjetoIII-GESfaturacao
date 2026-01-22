@@ -175,41 +175,41 @@ class RankingClientesController extends Controller
      * Exporta PDF do modo atual (qtd ou euros)
      */
     public function exportPdf(Request $request)
-{
-    [$top5Vendas, $top5Euros, $periodoTexto] = $this->obterTop5($request);
-    if ($top5Vendas === null) {
-        return redirect()->route('login')->withErrors(['error' => 'Por favor, faça login novamente.']);
-    }
+    {
+        [$top5Vendas, $top5Euros, $periodoTexto] = $this->obterTop5($request);
+        if ($top5Vendas === null) {
+            return redirect()->route('login')->withErrors(['error' => 'Por favor, faça login novamente.']);
+        }
 
-    $modo = $request->input('mode', 'qtd'); // 'qtd' ou 'euros'
-    $chartImg = $request->input('chart_img');
+        $modo = $request->input('mode', 'qtd'); // 'qtd' ou 'euros'
+        $chartImg = $request->input('chart_img');
 
-    if (!$chartImg || !\Illuminate\Support\Str::startsWith($chartImg, 'data:image')) {
-        return back()->withErrors(['error' => 'Não foi possível obter a imagem do gráfico para exportação.']);
-    }
+        if (!$chartImg || !\Illuminate\Support\Str::startsWith($chartImg, 'data:image')) {
+            return back()->withErrors(['error' => 'Não foi possível obter a imagem do gráfico para exportação.']);
+        }
 
-    $dados = ($modo === 'euros') ? $top5Euros : $top5Vendas;
+        $dados = ($modo === 'euros') ? $top5Euros : $top5Vendas;
 
-    $titulo = ($modo === 'euros')
-        ? 'Top 5 Clientes — Total (€)'
-        : 'Top 5 Clientes — Nº Vendas';
+        $titulo = ($modo === 'euros')
+            ? 'Top 5 Clientes — Total (€)'
+            : 'Top 5 Clientes — Nº Vendas';
 
-    $modoTexto = ($modo === 'euros') ? 'Total (€)' : 'Nº Vendas';
+        $modoTexto = ($modo === 'euros') ? 'Total (€)' : 'Nº Vendas';
 
-    $pdf = Pdf::loadView('exports.clientes_top5_pdf', [
-        'titulo' => $titulo,
-        'periodoTexto' => $periodoTexto,
-        'modoTexto' => $modoTexto,
-        'clientes' => $dados,
-        'chartImg' => $chartImg,
-        'geradoEm' => now(),
-    ])->setPaper('a4', 'portrait');
+        $pdf = Pdf::loadView('exports.clientes_top5_pdf', [
+            'titulo' => $titulo,
+            'periodoTexto' => $periodoTexto,
+            'modoTexto' => $modoTexto,
+            'clientes' => $dados,
+            'chartImg' => $chartImg,
+            'geradoEm' => now(),
+        ])->setPaper('a4', 'portrait');
 
-    $nome = ($modo === 'euros')
-        ? 'top_5_clientes_total_euros.pdf'
-        : 'top_5_clientes_num_vendas.pdf';
+        $nome = ($modo === 'euros')
+            ? 'top_5_clientes_total_euros.pdf'
+            : 'top_5_clientes_num_vendas.pdf';
 
-    return $pdf->download($nome);
+        return $pdf->download($nome);
     }
 
     /**
@@ -243,16 +243,13 @@ class RankingClientesController extends Controller
         $callback = function () use ($top5, $periodoTexto, $mode) {
             $out = fopen('php://output', 'w');
 
-            // BOM para Excel abrir UTF-8 corretamente
             fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
 
-            // Cabeçalho "meta"
             fputcsv($out, ['Relatório', 'Top 5 Clientes'], ';');
             fputcsv($out, ['Período', $periodoTexto], ';');
             fputcsv($out, ['Modo', $mode], ';');
             fputcsv($out, [], ';');
 
-            // Cabeçalhos da tabela
             fputcsv($out, ['#', 'Cliente', 'NIF', 'Nº Vendas', 'Total (€)'], ';');
 
             $i = 1;

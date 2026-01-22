@@ -56,7 +56,6 @@
                     <li><a class="dropdown-item" href="{{ route('relatorios.vencimento') }}">Cashflow - Vencimentos</a></li>
                     <li><a class="dropdown-item" href="{{ route('relatorios.diario') }}">Diário</a></li>
                     <li><a class="dropdown-item" href="{{ route('relatorios.pagamento') }}">Pagamentos</a></li>
-                    <li><a class="dropdown-item" href="#">Dias da semana</a></li>
                     <li><a class="dropdown-item" href="{{ route('relatorios.mensal') }}">Mensal</a></li>
                 </ul>
             </div>

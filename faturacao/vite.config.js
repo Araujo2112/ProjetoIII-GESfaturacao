@@ -14,6 +14,7 @@ export default defineConfig({
                 'resources/js/relatorios/diarioVendas.js',
                 'resources/js/relatorios/pagamentos.js',
                 'resources/js/relatorios/vencimentos.js',
+                'resources/js/relatorios/mensalVendas.js',
                 'resources/js/produtos/lucroProdutos.js',
                 'resources/js/produtos/stockProdutos.js',
                 'resources/js/produtos/topProdutos.js'

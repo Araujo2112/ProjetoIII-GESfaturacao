@@ -36,7 +36,8 @@ document.addEventListener('DOMContentLoaded', function () {
             chart: {
                 type: 'line',
                 height: 350,
-                toolbar: { show: true }
+                toolbar: { show: true },
+                zoom: { enabled: true, type: 'x', autoScaleYaxis: true }
             },
             dataLabels: { enabled: false },
             series: [{
@@ -60,11 +61,18 @@ document.addEventListener('DOMContentLoaded', function () {
         const labels = Object.keys(contagemMetodos);
 
         const options = {
-            chart: { type: 'pie', height: 350 },
-            dataLabels: { enabled: true },
+            chart: { 
+                type: 'pie',
+                height: 350,
+            },
+            dataLabels: { 
+                enabled: true 
+            },
             series,
             labels,
-            legend: { position: 'bottom' }
+            legend: {
+                position: 'bottom' 
+            }
         };
 
         if (topChart) topChart.destroy();
