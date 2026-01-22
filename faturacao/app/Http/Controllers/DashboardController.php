@@ -21,7 +21,7 @@ class DashboardController extends Controller
         // ----------------- Faturas ------------------
         $faturasCollection = $this->listarTodasFaturasSemFiltro($token);
 
-        if ($faturasCollection === false) 
+        if ($faturasCollection === false)
             return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
 
         $faturasValidas = $this->filtrarPorStatus($faturasCollection);
@@ -29,6 +29,7 @@ class DashboardController extends Controller
         // Cálculos diários de vendas
         $faturadoHojeValor = $this->calculaFaturacaoDia($faturasValidas);
 
+        // Calcula ontem
         $ontem = date('Y-m-d', strtotime('-1 day'));
         $faturadoOntemValor = $this->calculaFaturacaoDia(
             $faturasValidas,
@@ -61,10 +62,12 @@ class DashboardController extends Controller
         $datasFormatadas = [];
         $totaisPorDia = [];
 
+        // Últimos 7 dias
         for ($i = 6; $i >= 0; $i--) {
             $data = now()->subDays($i);
             $datasFormatadas[] = $data->format('d-m');
 
+            //Somas total das faturas desse dia
             $totalDia = $faturasValidas->filter(function ($fatura) use ($data) {
                 return substr($fatura['date'], 0, 10) === $data->format('Y-m-d');
             })->sum(fn($fatura) => floatval($fatura['total'] ?? 0));
@@ -88,7 +91,7 @@ class DashboardController extends Controller
         // ------------------ Compras -------------------
         $comprasCollection = $this->listarTodasComprasSemFiltro($token);
 
-        if ($comprasCollection === false) 
+        if ($comprasCollection === false)
             return redirect('/')->withErrors(['error' => 'Por favor, faça login primeiro.']);
 
         $comprasValidas = $this->filtrarPorStatus($comprasCollection);
@@ -184,7 +187,7 @@ class DashboardController extends Controller
     private function filtrarPorStatusEData(Collection $items, $inicio, $fim) {
         return $items->filter(function ($item) use ($inicio, $fim) {
             $statusId = $item['status']['id'] ?? 0;
-            if ($statusId != 2) 
+            if ($statusId != 2)
                 return false;
             $dataItem = substr($item['date'], 0, 10);
 

@@ -20,7 +20,7 @@ public function lista(Request $request)
     $search = $request->input('search');
     $sort = $request->input('sort', 'name');
     $direction = $request->input('direction', 'asc');
-    $allowedSorts = ['code', 'internalCode', 'name', 'vatNumber', 'phone', 'email', 'zipCode'];    
+    $allowedSorts = ['code', 'internalCode', 'name', 'vatNumber', 'phone', 'email', 'zipCode'];
     if (!in_array($sort, $allowedSorts)) { $sort = 'name'; }
     if (!in_array($direction, ['asc', 'desc'])) { $direction = 'asc'; }
 
@@ -29,13 +29,13 @@ public function lista(Request $request)
         'Accept' => 'application/json',
     ])->get('https://api.gesfaturacao.pt/api/v1.0.4/clients');
 
-    $clientes = collect();
+    $clientes = collect(); //inicia a coleção vazia
     if ($response->successful()) {
-        $dados = $response->json();
-        $clientes = collect($dados['data'] ?? []);
+        $dados = $response->json(); //converte JSON para array PHP
+        $clientes = collect($dados['data'] ?? []); // Extrai o array de clientes e converte para Collection
 
         if ($search) {
-            $searchLower = mb_strtolower($search);
+            $searchLower = mb_strtolower($search); //minúsculas
             $clientes = $clientes->filter(function($cli) use ($searchLower) {
                 return false !== stripos($cli['name'] ?? '', $searchLower)
                     || false !== stripos($cli['code'] ?? '', $searchLower)
@@ -57,8 +57,8 @@ public function lista(Request $request)
 
     $totalRegistos = $clientes->count();
     $totalPaginas = max(1, ceil($totalRegistos / $rows));
-    $paginaAtual = max(1, min($page, $totalPaginas));
-    $clientesPaginados = $clientes->forPage($paginaAtual, $rows)->values();
+    $paginaAtual = max(1, min($page, $totalPaginas)); //página atual dentro dos limites
+    $clientesPaginados = $clientes->forPage($paginaAtual, $rows)->values(); //extrai registos da página atual
 
     return view('clientes.listaClientes', [
         'clientes' => $clientesPaginados->toArray(),

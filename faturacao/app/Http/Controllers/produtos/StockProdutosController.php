@@ -22,6 +22,7 @@ class StockProdutosController extends Controller
         }
 
         $produtosRaw = $this->fetchProdutos();
+        //se não houver produtos
         if (!$produtosRaw) {
             return view('produtos.stock', [
                 'produtos' => [],
@@ -30,8 +31,10 @@ class StockProdutosController extends Controller
             ]);
         }
 
+        //filtrar por abaixo do stock
         $produtosFormatados = $this->formatarProdutosStockBaixo($produtosRaw);
 
+        //enviar para a view + dadods do gráfico
         return view('produtos.stock', [
             'produtos' => $produtosFormatados,
             'graficoDados' => [

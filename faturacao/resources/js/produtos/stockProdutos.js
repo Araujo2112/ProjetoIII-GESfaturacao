@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function () {
         try { window.stockBaixoChart.destroy(); } catch (e) {}
     }
 
-    // ✅ guardar para export PDF
+    // guardar para export PDF
     window.stockBaixoChart = new ApexCharts(el, options);
     window.stockBaixoChart.render();
 });
